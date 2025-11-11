@@ -1,176 +1,270 @@
-"""Rendering and visualization."""
+"""Rendering and visualization with modern UI."""
 import pygame
+import math
 from typing import Optional
 from config import *
-from core.grid import Grid
+from core.arena import Arena
 from core.models import Agent, Stats
 
 class Renderer:
-    """Handles all drawing operations."""
+    """Handles all drawing operations with modern visual style."""
     
-    def __init__(self, screen: pygame.Surface, grid: Grid):
+    def __init__(self, screen: pygame.Surface, arena: Arena):
         """Initialize renderer."""
         self.screen = screen
-        self.grid = grid
-        self.font = pygame.font.SysFont('Consolas', 14)
-        self.font_large = pygame.font.SysFont('Consolas', 16)
-        self.font_small = pygame.font.SysFont('Consolas', 12)
+        self.arena = arena
+        self.font = pygame.font.SysFont('Segoe UI', 14)
+        self.font_medium = pygame.font.SysFont('Segoe UI', 16)
+        self.font_large = pygame.font.SysFont('Segoe UI', 24, bold=True)
+        self.font_title = pygame.font.SysFont('Segoe UI', 32, bold=True)
         
         # Tooltip state
         self.tooltip_visible = False
         self.tooltip_content: list[str] = []
         self.tooltip_pos = (0, 0)
+        
+        # Animation state
+        self.pulse_offset = 0
     
-    def draw_grid(self) -> None:
-        """Draw the grid and obstacles."""
+    def draw_arena(self, current_time: float) -> None:
+        """Draw the arena background and edges."""
         self.screen.fill(COLOR_BACKGROUND)
         
-        # Draw cells
-        for y in range(self.grid.h):
-            for x in range(self.grid.w):
-                rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+        # Draw edges first (so they appear behind nodes)
+        for node_id, edges in self.arena.edges.items():
+            if node_id in self.arena.blocked:
+                continue
+            
+            pos1 = self.arena.get_node_position(node_id)
+            for neighbor_id, weight in edges:
+                if neighbor_id in self.arena.blocked:
+                    continue
                 
-                if self.grid.blocked[y][x]:
-                    pygame.draw.rect(self.screen, COLOR_WALL, rect)
-                else:
-                    pygame.draw.rect(self.screen, COLOR_FLOOR, rect)
+                pos2 = self.arena.get_node_position(neighbor_id)
                 
-                # Draw grid lines
-                pygame.draw.rect(self.screen, COLOR_GRID_LINE, rect, 1)
+                # Draw edge with anti-aliasing
+                color = COLOR_EDGE
+                pygame.draw.line(self.screen, color, pos1, pos2, 2)
     
-    def draw_path(self, path: list[tuple[int, int]]) -> None:
+    def draw_nodes(self) -> None:
+        """Draw all nodes in the arena."""
+        for node_id, pos in self.arena.nodes.items():
+            if node_id in self.arena.blocked:
+                # Draw blocked nodes differently
+                pygame.draw.circle(self.screen, COLOR_WALL, (int(pos[0]), int(pos[1])), NODE_RADIUS)
+                pygame.draw.circle(self.screen, COLOR_NODE_BORDER, (int(pos[0]), int(pos[1])), NODE_RADIUS, 2)
+            else:
+                # Draw regular nodes
+                pygame.draw.circle(self.screen, COLOR_NODE, (int(pos[0]), int(pos[1])), NODE_RADIUS)
+                pygame.draw.circle(self.screen, COLOR_NODE_BORDER, (int(pos[0]), int(pos[1])), NODE_RADIUS, 2)
+    
+    def draw_goal(self, goal_node: int, current_time: float) -> None:
+        """Draw the goal node with pulsing effect."""
+        pos = self.arena.get_node_position(goal_node)
+        
+        # Pulsing effect
+        pulse = math.sin(current_time * 0.003) * 3 + 3
+        inner_radius = NODE_RADIUS + int(pulse)
+        outer_radius = inner_radius + 6
+        
+        # Outer glow
+        pygame.draw.circle(self.screen, COLOR_GOAL_GLOW, (int(pos[0]), int(pos[1])), outer_radius)
+        # Inner circle
+        pygame.draw.circle(self.screen, COLOR_GOAL, (int(pos[0]), int(pos[1])), inner_radius)
+        # Star effect - draw a small star in center
+        center_x, center_y = int(pos[0]), int(pos[1])
+        star_size = 6
+        points = []
+        for i in range(8):
+            angle = i * math.pi / 4
+            r = star_size if i % 2 == 0 else star_size / 2
+            px = center_x + int(r * math.cos(angle))
+            py = center_y + int(r * math.sin(angle))
+            points.append((px, py))
+        pygame.draw.polygon(self.screen, (255, 255, 220), points)
+    
+    def draw_path(self, path: list[int]) -> None:
         """Draw the computed path."""
         if len(path) < 2:
             return
         
-        points = [(x * CELL_SIZE + CELL_SIZE // 2, y * CELL_SIZE + CELL_SIZE // 2) 
-                  for x, y in path]
-        pygame.draw.lines(self.screen, COLOR_PATH, False, points, 3)
+        for i in range(len(path) - 1):
+            pos1 = self.arena.get_node_position(path[i])
+            pos2 = self.arena.get_node_position(path[i + 1])
+            
+            # Draw thick glowing line
+            pygame.draw.line(self.screen, COLOR_PATH, pos1, pos2, 4)
     
     def draw_agents(self, player: Agent, enemy: Agent, current_time: float) -> None:
-        """Draw player and enemy agents with animation support."""
+        """Draw player and enemy agents with modern style."""
         # Draw player
         if player.in_transit:
-            px, py = player.movement_segment.get_interpolated_pos(current_time)
+            px, py = player.movement_segment.get_interpolated_pos(current_time, self.arena)
         else:
-            px, py = player.pos
+            px, py = self.arena.get_node_position(player.pos)
         
-        player_rect = pygame.Rect(
-            int(px * CELL_SIZE + 4), 
-            int(py * CELL_SIZE + 4), 
-            CELL_SIZE - 8, 
-            CELL_SIZE - 8
-        )
-        pygame.draw.rect(self.screen, COLOR_PLAYER, player_rect)
+        # Player glow
+        pygame.draw.circle(self.screen, COLOR_PLAYER_GLOW, (int(px), int(py)), NODE_RADIUS + 8)
+        # Player body
+        pygame.draw.circle(self.screen, COLOR_PLAYER, (int(px), int(py)), NODE_RADIUS)
+        # Player highlight
+        pygame.draw.circle(self.screen, (150, 220, 255), (int(px) - 5, int(py) - 5), NODE_RADIUS // 3)
         
         # Draw enemy
         if enemy.in_transit:
-            ex, ey = enemy.movement_segment.get_interpolated_pos(current_time)
+            ex, ey = enemy.movement_segment.get_interpolated_pos(current_time, self.arena)
         else:
-            ex, ey = enemy.pos
+            ex, ey = self.arena.get_node_position(enemy.pos)
         
-        enemy_rect = pygame.Rect(
-            int(ex * CELL_SIZE + 4), 
-            int(ey * CELL_SIZE + 4), 
-            CELL_SIZE - 8, 
-            CELL_SIZE - 8
-        )
-        pygame.draw.rect(self.screen, COLOR_ENEMY, enemy_rect)
+        # Enemy glow
+        pygame.draw.circle(self.screen, COLOR_ENEMY_GLOW, (int(ex), int(ey)), NODE_RADIUS + 8)
+        # Enemy body
+        pygame.draw.circle(self.screen, COLOR_ENEMY, (int(ex), int(ey)), NODE_RADIUS)
+        # Enemy highlight
+        pygame.draw.circle(self.screen, (255, 120, 140), (int(ex) - 5, int(ey) - 5), NODE_RADIUS // 3)
     
     def draw_pause_indicator(self, paused: bool) -> None:
-        """Draw pause indicator if paused."""
+        """Draw modern pause overlay."""
         if paused:
-            pause_text = self.font_large.render("PAUSED", True, (255, 255, 0))
-            self.screen.blit(pause_text, (WINDOW_WIDTH - 100, 20))
+            # Semi-transparent overlay
+            overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 100))
+            self.screen.blit(overlay, (0, 0))
+            
+            # Pause text with modern styling
+            pause_text = self.font_title.render("PAUSED", True, COLOR_TEXT_HIGHLIGHT)
+            pause_rect = pause_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+            
+            # Background for text
+            bg_rect = pause_rect.inflate(40, 20)
+            pygame.draw.rect(self.screen, (25, 28, 40, 220), bg_rect, border_radius=10)
+            pygame.draw.rect(self.screen, COLOR_TEXT_HIGHLIGHT, bg_rect, 2, border_radius=10)
+            
+            self.screen.blit(pause_text, pause_rect)
     
     def set_tooltip(self, content: list[str], mouse_pos: tuple[int, int]) -> None:
         """Set tooltip content and position."""
         self.tooltip_visible = True
         self.tooltip_content = content
         # Offset tooltip from mouse
-        self.tooltip_pos = (mouse_pos[0] + 15, mouse_pos[1] + 15)
+        self.tooltip_pos = (mouse_pos[0] + 20, mouse_pos[1] + 20)
     
     def hide_tooltip(self) -> None:
         """Hide the tooltip."""
         self.tooltip_visible = False
     
     def draw_tooltip(self) -> None:
-        """Draw the tooltip if visible."""
+        """Draw modern styled tooltip."""
         if not self.tooltip_visible or not self.tooltip_content:
             return
         
         # Calculate tooltip size
-        padding = 8
-        line_height = 16
-        max_width = max(self.font_small.size(line)[0] for line in self.tooltip_content) if self.tooltip_content else 100
+        padding = 12
+        line_height = 20
+        max_width = max(self.font.size(line)[0] for line in self.tooltip_content) if self.tooltip_content else 100
         tooltip_width = max_width + padding * 2
         tooltip_height = len(self.tooltip_content) * line_height + padding * 2
         
         # Ensure tooltip stays on screen
         x, y = self.tooltip_pos
         if x + tooltip_width > WINDOW_WIDTH:
-            x = WINDOW_WIDTH - tooltip_width - 5
+            x = WINDOW_WIDTH - tooltip_width - 10
         if y + tooltip_height > WINDOW_HEIGHT:
-            y = WINDOW_HEIGHT - tooltip_height - 5
+            y = WINDOW_HEIGHT - tooltip_height - 10
         
-        # Draw background
+        # Draw modern tooltip with shadow
+        shadow_rect = pygame.Rect(x + 3, y + 3, tooltip_width, tooltip_height)
+        pygame.draw.rect(self.screen, (0, 0, 0, 100), shadow_rect, border_radius=8)
+        
+        # Main tooltip background
         tooltip_rect = pygame.Rect(x, y, tooltip_width, tooltip_height)
-        pygame.draw.rect(self.screen, (40, 40, 50), tooltip_rect)
-        pygame.draw.rect(self.screen, (200, 200, 200), tooltip_rect, 1)
+        pygame.draw.rect(self.screen, (35, 40, 55), tooltip_rect, border_radius=8)
+        pygame.draw.rect(self.screen, COLOR_TEXT_HIGHLIGHT, tooltip_rect, 2, border_radius=8)
         
         # Draw text lines
         for i, line in enumerate(self.tooltip_content):
-            text_surface = self.font_small.render(line, True, COLOR_TEXT)
+            color = COLOR_TEXT if i > 0 else COLOR_TEXT_HIGHLIGHT
+            text_surface = self.font.render(line, True, color)
             self.screen.blit(text_surface, (x + padding, y + padding + i * line_height))
     
     def draw_victory_screen(self, stats: Stats, algo: str) -> None:
-        """Draw victory screen with comprehensive stats."""
+        """Draw modern victory screen."""
         # Semi-transparent overlay
-        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
-        overlay.set_alpha(200)
-        overlay.fill((20, 20, 30))
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
         
+        # Victory panel
+        panel_width = 600
+        panel_height = 500
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        # Panel background with gradient effect
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, (30, 35, 50), panel_rect, border_radius=15)
+        pygame.draw.rect(self.screen, (100, 255, 150), panel_rect, 3, border_radius=15)
+        
         # Title
-        title = self.font_large.render("VICTORY!", True, (100, 255, 100))
-        title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, 100))
+        title = self.font_title.render("VICTORY!", True, (100, 255, 150))
+        title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, panel_y + 60))
         self.screen.blit(title, title_rect)
         
         # Stats
-        y_offset = 150
+        y_offset = panel_y + 130
         stats_lines = self._format_stats_for_screen(stats, algo, victory=True)
         for line in stats_lines:
-            text = self.font.render(line, True, COLOR_TEXT)
+            text = self.font_medium.render(line, True, COLOR_TEXT)
             text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, y_offset))
             self.screen.blit(text, text_rect)
-            y_offset += 25
+            y_offset += 28
+        
+        # Footer
+        footer = self.font.render("Press SPACE to return to menu", True, COLOR_TEXT_DIM)
+        footer_rect = footer.get_rect(center=(WINDOW_WIDTH // 2, panel_y + panel_height - 40))
+        self.screen.blit(footer, footer_rect)
     
     def draw_defeat_screen(self, stats: Stats, algo: str, reason: str) -> None:
-        """Draw defeat screen with comprehensive stats."""
+        """Draw modern defeat screen."""
         # Semi-transparent overlay
-        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
-        overlay.set_alpha(200)
-        overlay.fill((20, 20, 30))
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
         
+        # Defeat panel
+        panel_width = 600
+        panel_height = 500
+        panel_x = (WINDOW_WIDTH - panel_width) // 2
+        panel_y = (WINDOW_HEIGHT - panel_height) // 2
+        
+        # Panel background
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, (30, 35, 50), panel_rect, border_radius=15)
+        pygame.draw.rect(self.screen, (255, 100, 100), panel_rect, 3, border_radius=15)
+        
         # Title
-        title = self.font_large.render("DEFEAT!", True, (255, 100, 100))
-        title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, 100))
+        title = self.font_title.render("DEFEAT", True, (255, 100, 100))
+        title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, panel_y + 60))
         self.screen.blit(title, title_rect)
         
         # Reason
-        reason_text = self.font.render(f"Reason: {reason}", True, (255, 255, 100))
-        reason_rect = reason_text.get_rect(center=(WINDOW_WIDTH // 2, 130))
+        reason_text = self.font_medium.render(reason, True, (255, 200, 100))
+        reason_rect = reason_text.get_rect(center=(WINDOW_WIDTH // 2, panel_y + 100))
         self.screen.blit(reason_text, reason_rect)
         
         # Stats
-        y_offset = 170
+        y_offset = panel_y + 150
         stats_lines = self._format_stats_for_screen(stats, algo, victory=False)
         for line in stats_lines:
-            text = self.font.render(line, True, COLOR_TEXT)
+            text = self.font_medium.render(line, True, COLOR_TEXT)
             text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, y_offset))
             self.screen.blit(text, text_rect)
-            y_offset += 25
+            y_offset += 28
+        
+        # Footer
+        footer = self.font.render("Press SPACE to return to menu", True, COLOR_TEXT_DIM)
+        footer_rect = footer.get_rect(center=(WINDOW_WIDTH // 2, panel_y + panel_height - 40))
+        self.screen.blit(footer, footer_rect)
     
     def _format_stats_for_screen(self, stats: Stats, algo: str, victory: bool) -> list[str]:
         """Format stats based on algorithm type."""

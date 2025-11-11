@@ -1,7 +1,7 @@
 """Core gameplay logic and state management."""
 import time
 from typing import Optional
-from core.grid import Grid
+from core.arena import Arena
 from core.models import Agent, Stats, MovementSegment
 from algorithms import bfs, dfs, ucs, greedy, astar
 from config import get_animation_duration
@@ -9,12 +9,13 @@ from config import get_animation_duration
 class Game:
     """Manages game state and pathfinding."""
     
-    def __init__(self, grid: Grid, player: Agent, enemy: Agent):
-        """Initialize game with grid and agents."""
-        self.grid = grid
+    def __init__(self, arena: Arena, player: Agent, enemy: Agent, goal: int):
+        """Initialize game with arena and agents."""
+        self.arena = arena
         self.player = player
         self.enemy = enemy
-        self.path: list[tuple[int, int]] = []
+        self.goal = goal
+        self.path: list[int] = []
         self.stats = Stats()
         self.current_algo = 'BFS'
         self.game_over = False
@@ -32,15 +33,15 @@ class Game:
         
         # Select algorithm
         if algo == 'BFS':
-            self.path, enemy_stats = bfs.find_path(self.grid, start, goal)
+            self.path, enemy_stats = bfs.find_path(self.arena, start, goal)
         elif algo == 'DFS':
-            self.path, enemy_stats = dfs.find_path(self.grid, start, goal)
+            self.path, enemy_stats = dfs.find_path(self.arena, start, goal)
         elif algo == 'UCS':
-            self.path, enemy_stats = ucs.find_path(self.grid, start, goal)
+            self.path, enemy_stats = ucs.find_path(self.arena, start, goal)
         elif algo == 'Greedy':
-            self.path, enemy_stats = greedy.find_path(self.grid, start, goal)
+            self.path, enemy_stats = greedy.find_path(self.arena, start, goal)
         elif algo == 'A*':
-            self.path, enemy_stats = astar.find_path(self.grid, start, goal)
+            self.path, enemy_stats = astar.find_path(self.arena, start, goal)
         else:
             self.path = []
             enemy_stats = Stats()
@@ -61,14 +62,14 @@ class Game:
         self.enemy.path = self.path
         self.enemy.path_index = 0
     
-    def start_movement(self, agent: Agent, target_pos: tuple[int, int], current_time: float) -> None:
+    def start_movement(self, agent: Agent, target_node: int, current_time: float) -> None:
         """Start an animated movement for an agent."""
-        weight = self.grid.step_cost(agent.pos, target_pos)
+        weight = self.arena.step_cost(agent.pos, target_node)
         duration = get_animation_duration(weight)
         
         agent.movement_segment = MovementSegment(
             origin_node=agent.pos,
-            target_node=target_pos,
+            target_node=target_node,
             start_time=current_time,
             duration=duration,
             weight=weight
@@ -87,24 +88,26 @@ class Game:
             if agent == self.player:
                 self.stats.distance_traveled += 1  # Count nodes
                 self.stats.cost_traveled += agent.movement_segment.weight
+                self.stats.path_len += 1
             
             agent.movement_segment = None
             return True
         
         return False
     
-    def step_player_along_path(self, current_time: float) -> bool:
-        """Move player one step along path. Returns True if moved."""
+    def try_move_player(self, target_node: int, current_time: float) -> bool:
+        """Try to move player to target node. Returns True if successful."""
         # Don't move if already in transit
         if self.player.in_transit:
             return False
         
-        if not self.player.path or self.player.path_index >= len(self.player.path):
+        # Check if target is a valid neighbor
+        neighbors = list(self.arena.neighbors(self.player.pos))
+        if target_node not in neighbors:
             return False
         
-        target_pos = self.player.path[self.player.path_index]
-        self.start_movement(self.player, target_pos, current_time)
-        self.player.path_index += 1
+        # Start movement
+        self.start_movement(self.player, target_node, current_time)
         return True
     
     def step_enemy_along_path(self, current_time: float) -> bool:
@@ -116,8 +119,8 @@ class Game:
         if not self.enemy.path or self.enemy.path_index >= len(self.enemy.path):
             return False
         
-        target_pos = self.enemy.path[self.enemy.path_index]
-        self.start_movement(self.enemy, target_pos, current_time)
+        target_node = self.enemy.path[self.enemy.path_index]
+        self.start_movement(self.enemy, target_node, current_time)
         self.enemy.path_index += 1
         return True
     
@@ -126,6 +129,10 @@ class Game:
         return (not self.player.in_transit and 
                 not self.enemy.in_transit and 
                 self.player.pos == self.enemy.pos)
+    
+    def check_victory(self) -> bool:
+        """Check if player has reached the goal."""
+        return not self.player.in_transit and self.player.pos == self.goal
     
     def on_player_arrival(self, current_time: float) -> None:
         """Called when player completes movement to a new node."""

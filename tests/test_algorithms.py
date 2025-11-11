@@ -133,7 +133,8 @@ def test_enemy_recalculation_trigger():
     player = Agent(name="Player", pos=player_pos, stamina=100, hp=100)
     enemy = Agent(name="Enemy", pos=enemy_pos, stamina=100, hp=100)
     
-    game = Game(grid, player, enemy)
+    # Goal can be same as enemy position
+    game = Game(grid, player, enemy, enemy_pos)
     game.compute_path('BFS')
     
     initial_recalcs = game.stats.enemy_path_recalculations
@@ -225,7 +226,8 @@ def test_stats_tracking():
     player = Agent(name="Player", pos=player_pos, stamina=100, hp=100)
     enemy = Agent(name="Enemy", pos=enemy_pos, stamina=100, hp=100)
     
-    game = Game(grid, player, enemy)
+    # Goal can be same as enemy position
+    game = Game(grid, player, enemy, enemy_pos)
     game.compute_path('A*')
     
     # Should have enemy exploration stats

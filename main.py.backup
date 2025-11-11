@@ -1,8 +1,8 @@
-"""Main entry point for Project ARES - Algorithm Arena."""
+"""Main entry point for Project ARES."""
 import pygame
 import sys
 from config import *
-from core.arena import Arena
+from core.grid import Grid
 from core.models import Agent
 from core.gameplay import Game
 from core.graphics import Renderer
@@ -15,77 +15,41 @@ class GameState:
     VICTORY = "victory"
     DEFEAT = "defeat"
 
-def draw_modern_menu(screen: pygame.Surface) -> None:
-    """Draw modern algorithm selection menu."""
+def draw_menu(screen: pygame.Surface, font_large: pygame.font.Font, font: pygame.font.Font) -> None:
+    """Draw the algorithm selection menu."""
     screen.fill(COLOR_BACKGROUND)
     
-    # Fonts
-    font_title = pygame.font.SysFont('Segoe UI', 48, bold=True)
-    font_subtitle = pygame.font.SysFont('Segoe UI', 20)
-    font_normal = pygame.font.SysFont('Segoe UI', 16)
-    font_small = pygame.font.SysFont('Segoe UI', 14)
-    
-    # Title with glow effect
-    title = font_title.render("ALGORITHM ARENA", True, COLOR_TEXT_HIGHLIGHT)
-    title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, 80))
-    # Glow
-    glow = font_title.render("ALGORITHM ARENA", True, (50, 100, 150))
-    for offset in [(2, 2), (-2, 2), (2, -2), (-2, -2)]:
-        glow_rect = title_rect.copy()
-        glow_rect.x += offset[0]
-        glow_rect.y += offset[1]
-        screen.blit(glow, glow_rect)
+    # Title
+    title = font_large.render("Project ARES - Algorithm Arena", True, COLOR_TEXT)
+    title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, 100))
     screen.blit(title, title_rect)
     
-    # Subtitle
-    subtitle = font_subtitle.render("Choose Your Pathfinding Algorithm", True, COLOR_TEXT_DIM)
-    subtitle_rect = subtitle.get_rect(center=(WINDOW_WIDTH // 2, 140))
-    screen.blit(subtitle, subtitle_rect)
-    
-    # Algorithm buttons
-    button_width = 300
-    button_height = 60
-    button_spacing = 20
-    start_y = 220
-    
-    algorithms = [
-        ("1", "BFS", "Breadth-First Search"),
-        ("2", "DFS", "Depth-First Search"),
-        ("3", "UCS", "Uniform Cost Search"),
-        ("4", "Greedy", "Greedy Best-First"),
-        ("5", "A*", "A* Search"),
-    ]
-    
-    for i, (key, name, full_name) in enumerate(algorithms):
-        y = start_y + i * (button_height + button_spacing)
-        x = (WINDOW_WIDTH - button_width) // 2
-        
-        # Button background
-        button_rect = pygame.Rect(x, y, button_width, button_height)
-        pygame.draw.rect(screen, COLOR_BUTTON, button_rect, border_radius=10)
-        pygame.draw.rect(screen, COLOR_TEXT_HIGHLIGHT, button_rect, 2, border_radius=10)
-        
-        # Button text
-        key_text = font_subtitle.render(f"{key}.", True, COLOR_TEXT_HIGHLIGHT)
-        name_text = font_normal.render(name, True, COLOR_TEXT)
-        full_text = font_small.render(full_name, True, COLOR_TEXT_DIM)
-        
-        screen.blit(key_text, (x + 20, y + 15))
-        screen.blit(name_text, (x + 60, y + 12))
-        screen.blit(full_text, (x + 60, y + 35))
-    
-    # Instructions at bottom
+    # Instructions
     instructions = [
-        "Objective: Click adjacent nodes to move. Reach the GOAL before the enemy!",
-        "SPACE - Pause  |  Mouse - Select node  |  Hover - View info"
+        "Select an algorithm to begin:",
+        "",
+        "1. BFS - Breadth-First Search",
+        "2. DFS - Depth-First Search",
+        "3. UCS - Uniform Cost Search",
+        "4. Greedy - Greedy Best-First",
+        "5. A* - A* Search",
+        "",
+        "Objective: Reach the GOAL (gold square) before the enemy catches you!",
+        "",
+        "Controls:",
+        "Arrow Keys / WASD - Move player",
+        "SPACE - Pause/Unpause",
+        "Hover over adjacent nodes for info",
+        "",
+        "Press 1-5 to start"
     ]
     
-    y_offset = WINDOW_HEIGHT - 100
+    y_offset = 150
     for line in instructions:
-        text = font_small.render(line, True, COLOR_TEXT_DIM)
+        text = font.render(line, True, COLOR_TEXT)
         text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, y_offset))
         screen.blit(text, text_rect)
-        y_offset += 25
+        y_offset += 28
 
 def main():
     """Main game loop."""
@@ -93,13 +57,16 @@ def main():
     
     # Create window
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Algorithm Arena - Project ARES")
+    pygame.display.set_caption("Project ARES - AI Responsive Enemy System")
     clock = pygame.time.Clock()
+    
+    # Fonts for menu
+    font = pygame.font.SysFont('Consolas', 14)
+    font_large = pygame.font.SysFont('Consolas', 20)
     
     # Game state
     game_state = GameState.MENU
     game = None
-    arena = None
     renderer = None
     ui_handler = UIHandler()
     paused = False
@@ -131,24 +98,21 @@ def main():
                         selected_algo = 'A*'
                     
                     if selected_algo:
-                        # Initialize new game with arena
-                        arena = Arena(
-                            node_count=NODE_COUNT,
-                            obstacle_ratio=OBSTACLE_RATIO,
-                            seed=DEFAULT_SEED,
-                            window_width=WINDOW_WIDTH,
-                            window_height=WINDOW_HEIGHT
-                        )
+                        # Initialize new game
+                        grid = Grid(GRID_WIDTH, GRID_HEIGHT, obstacle_ratio=OBSTACLE_RATIO, seed=DEFAULT_SEED)
                         
-                        # Get opposite corner nodes
-                        player_start, enemy_start = arena.get_opposite_corners()
-                        goal_node = enemy_start  # Goal near enemy
+                        # Get opposite corner positions
+                        player_start, enemy_start = grid.get_opposite_corners()
+                        
+                        # Goal is also at an opposite corner from player (but could be same as enemy or different)
+                        # Let's put it near enemy spawn
+                        goal_pos = enemy_start
                         
                         player = Agent(name="Player", pos=player_start, stamina=100, hp=100)
                         enemy = Agent(name="Enemy", pos=enemy_start, stamina=100, hp=100)
                         
-                        game = Game(arena, player, enemy, goal_node)
-                        renderer = Renderer(screen, arena)
+                        game = Game(grid, player, enemy, goal_pos)
+                        renderer = Renderer(screen, grid)
                         
                         # Compute initial enemy path
                         game.compute_path(selected_algo)
@@ -163,24 +127,21 @@ def main():
                     
                     if ui_state.paused is not None:
                         paused = ui_state.paused
+                    
+                    # Handle player movement
+                    if ui_state.move_direction and not paused:
+                        game.try_move_player(ui_state.move_direction, current_time)
                 
                 elif game_state in [GameState.VICTORY, GameState.DEFEAT]:
-                    # Return to menu on space/enter/escape
-                    if event.key in [pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE]:
+                    # Return to menu on any key
+                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                         game_state = GameState.MENU
-            
-            elif event.type == pygame.MOUSEBUTTONDOWN and game_state == GameState.PLAYING:
-                if not paused and event.button == 1:  # Left click
-                    clicked_node = ui_handler.handle_mouse_click(event.pos, arena)
-                    if clicked_node is not None:
-                        # Try to move player to clicked node
-                        game.try_move_player(clicked_node, current_time)
         
         # Render based on state
         if game_state == GameState.MENU:
-            draw_modern_menu(screen)
+            draw_menu(screen, font_large, font)
         
-        elif game_state == GameState.PLAYING and game and arena:
+        elif game_state == GameState.PLAYING and game:
             # Update animations
             player_completed = game.update_movement(game.player, current_time)
             enemy_completed = game.update_movement(game.enemy, current_time)
@@ -206,20 +167,19 @@ def main():
                 game.defeat_reason = "Caught by enemy"
                 game_state = GameState.DEFEAT
             
-            # Render arena
-            renderer.draw_arena(current_time)
-            renderer.draw_nodes()
-            renderer.draw_goal(game.goal, current_time)
+            # Render game
+            renderer.draw_grid()
+            renderer.draw_goal(game.goal)
             renderer.draw_path(game.path)
             renderer.draw_agents(game.player, game.enemy, current_time)
             renderer.draw_pause_indicator(paused)
             
             # Handle tooltip
             mouse_pos = pygame.mouse.get_pos()
-            hovered_node = ui_handler.get_hovered_node(mouse_pos, arena)
-            if hovered_node is not None:
+            hovered_node = ui_handler.get_hovered_node(mouse_pos, CELL_SIZE)
+            if hovered_node:
                 tooltip_content = ui_handler.generate_tooltip_content(
-                    hovered_node, game.player, arena, game.current_algo
+                    hovered_node, game.player, game.grid, game.current_algo
                 )
                 if tooltip_content:
                     renderer.set_tooltip(tooltip_content, mouse_pos)
@@ -230,18 +190,16 @@ def main():
             
             renderer.draw_tooltip()
         
-        elif game_state == GameState.VICTORY and game and arena:
-            renderer.draw_arena(current_time)
-            renderer.draw_nodes()
-            renderer.draw_goal(game.goal, current_time)
+        elif game_state == GameState.VICTORY and game:
+            renderer.draw_grid()
+            renderer.draw_goal(game.goal)
             renderer.draw_path(game.path)
             renderer.draw_agents(game.player, game.enemy, current_time)
             renderer.draw_victory_screen(game.stats, game.current_algo)
         
-        elif game_state == GameState.DEFEAT and game and arena:
-            renderer.draw_arena(current_time)
-            renderer.draw_nodes()
-            renderer.draw_goal(game.goal, current_time)
+        elif game_state == GameState.DEFEAT and game:
+            renderer.draw_grid()
+            renderer.draw_goal(game.goal)
             renderer.draw_path(game.path)
             renderer.draw_agents(game.player, game.enemy, current_time)
             renderer.draw_defeat_screen(game.stats, game.current_algo, game.defeat_reason)

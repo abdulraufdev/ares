@@ -1,9 +1,8 @@
 """Depth-First Search pathfinding."""
-from core.grid import Grid
 from core.models import Stats
 
-def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tuple[list[tuple[int, int]], Stats]:
-    """Find path using DFS."""
+def find_path(arena, start: int, goal: int) -> tuple[list[int], Stats]:
+    """Find path using DFS on arena graph."""
     stats = Stats()
     
     if start == goal:
@@ -27,9 +26,9 @@ def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tupl
             stats.path_len = len(path)
             return path, stats
         
-        for next_pos in grid.neighbors(current):
-            if next_pos not in came_from:
-                frontier.append(next_pos)
-                came_from[next_pos] = current
+        for next_node in arena.neighbors(current):
+            if next_node not in came_from:
+                frontier.append(next_node)
+                came_from[next_node] = current
     
     return [], stats

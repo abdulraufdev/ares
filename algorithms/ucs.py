@@ -1,10 +1,9 @@
 """Uniform Cost Search pathfinding."""
 import heapq
-from core.grid import Grid
 from core.models import Stats
 
-def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tuple[list[tuple[int, int]], Stats]:
-    """Find path using Uniform Cost Search."""
+def find_path(arena, start: int, goal: int) -> tuple[list[int], Stats]:
+    """Find path using Uniform Cost Search on arena graph."""
     stats = Stats()
     
     if start == goal:
@@ -31,13 +30,13 @@ def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tupl
             stats.path_cost = cost_so_far[current]
             return path, stats
         
-        for next_pos in grid.neighbors(current):
-            new_cost = cost_so_far[current] + grid.step_cost(current, next_pos)
+        for next_node in arena.neighbors(current):
+            new_cost = cost_so_far[current] + arena.step_cost(current, next_node)
             
-            if next_pos not in cost_so_far or new_cost < cost_so_far[next_pos]:
-                cost_so_far[next_pos] = new_cost
+            if next_node not in cost_so_far or new_cost < cost_so_far[next_node]:
+                cost_so_far[next_node] = new_cost
                 priority = new_cost
-                heapq.heappush(frontier, (priority, next_pos))
-                came_from[next_pos] = current
+                heapq.heappush(frontier, (priority, next_node))
+                came_from[next_node] = current
     
     return [], stats

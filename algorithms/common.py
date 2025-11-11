@@ -14,6 +14,10 @@ def octile(a: tuple[int, int], b: tuple[int, int]) -> float:
     dy = abs(a[1] - b[1])
     return max(dx, dy) + 0.414 * min(dx, dy)
 
+def euclidean_nodes(pos1: tuple[float, float], pos2: tuple[float, float]) -> float:
+    """Calculate Euclidean distance between two node positions (float coordinates)."""
+    return ((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2) ** 0.5
+
 def get_heuristic(name: str):
     """Get heuristic function by name."""
     heuristics = {
