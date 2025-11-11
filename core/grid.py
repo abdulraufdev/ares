@@ -65,3 +65,41 @@ class Grid:
             return base_cost * 1.414
         
         return base_cost
+    
+    def get_opposite_corners(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Get two opposite corner positions that are passable and not adjacent.
+        Returns (player_start, enemy_start) where player is at min(x+y) corner
+        and enemy is at max(x+y) corner."""
+        
+        # Collect all passable cells
+        passable_cells = []
+        for y in range(self.h):
+            for x in range(self.w):
+                if not self.blocked[y][x]:
+                    passable_cells.append((x, y))
+        
+        if not passable_cells:
+            # Fallback to (0, 0) and (w-1, h-1) if no passable cells
+            return (0, 0), (self.w - 1, self.h - 1)
+        
+        # Sort by sum of coordinates
+        passable_cells.sort(key=lambda p: p[0] + p[1])
+        
+        # Player starts at minimum sum (top-left-ish corner)
+        player_pos = passable_cells[0]
+        
+        # Enemy starts at maximum sum (bottom-right-ish corner)
+        enemy_pos = passable_cells[-1]
+        
+        # Ensure they're not adjacent
+        px, py = player_pos
+        ex, ey = enemy_pos
+        distance = max(abs(ex - px), abs(ey - py))  # Chebyshev distance
+        
+        if distance <= 1:
+            # If they would be adjacent, find a different enemy position
+            # Use the cell with second-highest sum
+            if len(passable_cells) > 1:
+                enemy_pos = passable_cells[-2]
+        
+        return player_pos, enemy_pos
