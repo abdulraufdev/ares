@@ -22,12 +22,22 @@ class Node:
     pos: Tuple[int, int]
     label: str
     neighbors: List['Node'] = field(default_factory=list)
-    weights: dict = field(default_factory=dict)  # {neighbor_node: weight}
+    weights: dict = field(default_factory=dict)  # {neighbor_label: weight}
     blocked: bool = False
     distance: float = float('inf')
     g_cost: float = 0.0
     h_cost: float = 0.0
     f_cost: float = 0.0
+    
+    def __hash__(self):
+        """Make Node hashable based on label."""
+        return hash(self.label)
+    
+    def __eq__(self, other):
+        """Check equality based on label."""
+        if not isinstance(other, Node):
+            return False
+        return self.label == other.label
     
 @dataclass
 class Ability:
@@ -66,11 +76,39 @@ class EnemyAI:
         self.path_index = 0
         self.move_delay = ENEMY_SPEEDS.get(algorithm, 500)
         self.last_move_time = 0
+        self.stats = Stats()
         
     def update_path(self, graph: 'ArenaGraph', target_node: Node):
         """Recompute path to target using current algorithm."""
-        # Convert graph to grid-like structure for pathfinding
-        # This is a simplified version - actual implementation will use graph structure
+        # Use BFS on the graph structure to find path
+        if self.current_node == target_node:
+            self.path = []
+            self.path_index = 0
+            return
+        
+        # Simple BFS-based pathfinding on graph
+        from collections import deque
+        
+        queue = deque([(self.current_node, [self.current_node])])
+        visited = {self.current_node}
+        
+        while queue:
+            current, path = queue.popleft()
+            
+            if current == target_node:
+                # Found path - skip first node (current position)
+                self.path = path[1:] if len(path) > 1 else []
+                self.path_index = 0
+                self.stats.path_len = len(self.path)
+                return
+            
+            # Explore neighbors
+            for neighbor in current.neighbors:
+                if neighbor not in visited and not neighbor.blocked:
+                    visited.add(neighbor)
+                    queue.append((neighbor, path + [neighbor]))
+        
+        # No path found
         self.path = []
         self.path_index = 0
         
@@ -79,8 +117,8 @@ class EnemyAI:
         if current_time - self.last_move_time < self.move_delay:
             return False
         
-        if not self.path or self.path_index >= len(self.path):
-            self.update_path(graph, target_node)
+        # Recompute path every move (player might have moved)
+        self.update_path(graph, target_node)
         
         if self.path and self.path_index < len(self.path):
             self.current_node = self.path[self.path_index]
@@ -327,6 +365,13 @@ class ArenaMode:
             label_rect = label_text.get_rect(center=node.pos)
             self.screen.blit(label_text, label_rect)
         
+        # Draw enemy path
+        if self.enemy.path and len(self.enemy.path) > 0:
+            # Draw path line
+            path_points = [self.enemy.current_node.pos] + [node.pos for node in self.enemy.path]
+            if len(path_points) > 1:
+                pygame.draw.lines(self.screen, (255, 150, 150), False, path_points, 2)
+        
         # Draw player
         if self.player_node:
             pygame.draw.circle(self.screen, (100, 150, 255), self.player_node.pos, 15)
@@ -437,16 +482,31 @@ class ArenaMode:
         
         if node.blocked:
             lines.append("Status: BLOCKED")
+        else:
+            lines.append("Status: Open")
+        
+        # Add neighbor weights
+        if node.neighbors:
+            lines.append("Edge Weights:")
+            for i, neighbor in enumerate(node.neighbors[:3]):  # Show first 3
+                weight = node.weights.get(neighbor, 1)
+                lines.append(f"  -> {neighbor.label}: {weight}")
+            if len(node.neighbors) > 3:
+                lines.append(f"  ... +{len(node.neighbors) - 3} more")
+        
+        # Algorithm info
+        lines.append("")
+        lines.append(f"Enemy Algorithm: {self.current_algorithm}")
         
         # Tooltip styling (Windows-style)
         bg_color = (255, 255, 225)  # Light yellow
         border_color = (0, 0, 0)
         text_color = (0, 0, 0)
         padding = 8
-        line_height = 20
+        line_height = 18
         
         # Calculate size
-        max_width = max([self.font_small.size(line)[0] for line in lines])
+        max_width = max([self.font_small.size(line)[0] for line in lines if line])
         tooltip_width = max_width + padding * 2
         tooltip_height = len(lines) * line_height + padding * 2
         
@@ -457,8 +517,9 @@ class ArenaMode:
         
         # Draw text
         for i, line in enumerate(lines):
-            text = self.font_small.render(line, True, text_color)
-            tooltip_surface.blit(text, (padding, padding + i * line_height))
+            if line:  # Skip empty lines in rendering
+                text = self.font_small.render(line, True, text_color)
+                tooltip_surface.blit(text, (padding, padding + i * line_height))
         
         # Position near mouse
         mouse_x, mouse_y = pygame.mouse.get_pos()
