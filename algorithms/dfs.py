@@ -1,8 +1,11 @@
 """Depth-First Search pathfinding."""
+from typing import Union
 from core.grid import Grid
+from core.graph import Graph
 from core.models import Stats
 
-def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tuple[list[tuple[int, int]], Stats]:
+
+def find_path(grid: Union[Grid, Graph], start, goal) -> tuple[list, Stats]:
     """Find path using DFS."""
     stats = Stats()
     
@@ -33,3 +36,4 @@ def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tupl
                 came_from[next_pos] = current
     
     return [], stats
+

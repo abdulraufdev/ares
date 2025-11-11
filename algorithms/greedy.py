@@ -1,10 +1,13 @@
 """Greedy Best-First Search pathfinding."""
 import heapq
+from typing import Union
 from core.grid import Grid
+from core.graph import Graph
 from core.models import Stats
 from algorithms.common import manhattan
 
-def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tuple[list[tuple[int, int]], Stats]:
+
+def find_path(grid: Union[Grid, Graph], start, goal) -> tuple[list, Stats]:
     """Find path using Greedy Best-First Search."""
     stats = Stats()
     
@@ -12,7 +15,13 @@ def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tupl
         stats.path_len = 1
         return [start], stats
     
-    frontier = [(manhattan(start, goal), start)]
+    # Use graph heuristic if available, otherwise manhattan
+    if hasattr(grid, 'heuristic'):
+        heuristic_func = lambda pos, goal_pos: grid.heuristic(pos, goal_pos)
+    else:
+        heuristic_func = manhattan
+    
+    frontier = [(heuristic_func(start, goal), start)]
     came_from = {start: None}
     
     while frontier:
@@ -31,8 +40,9 @@ def find_path(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> tupl
         
         for next_pos in grid.neighbors(current):
             if next_pos not in came_from:
-                priority = manhattan(next_pos, goal)
+                priority = heuristic_func(next_pos, goal)
                 heapq.heappush(frontier, (priority, next_pos))
                 came_from[next_pos] = current
     
     return [], stats
+

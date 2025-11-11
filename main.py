@@ -2,11 +2,12 @@
 import pygame
 import sys
 from config import *
-from core.grid import Grid
+from core.graph import Graph
 from core.models import Agent
 from core.gameplay import Game
 from core.graphics import Renderer
 from core.ui import UIHandler
+
 
 def main():
     """Main game loop."""
@@ -14,26 +15,29 @@ def main():
     
     # Create window
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Project ARES - AI Responsive Enemy System")
+    pygame.display.set_caption("Algorithm Arena - Beautiful Graph Visualization")
     clock = pygame.time.Clock()
     
-    # Initialize components
-    grid = Grid(GRID_WIDTH, GRID_HEIGHT, obstacle_ratio=OBSTACLE_RATIO, seed=DEFAULT_SEED)
+    # Initialize with BFS algorithm
+    current_algo = 'BFS'
+    graph = Graph(NUM_NODES, seed=DEFAULT_SEED, layout_type=GRAPH_LAYOUTS[current_algo])
     
-    # Create agents
-    player = Agent(name="Player", pos=(2, 2), stamina=100, hp=100)
-    enemy = Agent(name="Enemy", pos=(GRID_WIDTH - 3, GRID_HEIGHT - 3), stamina=100, hp=100)
+    # Create agents at first and last nodes
+    player = Agent(name="Player", pos=0, stamina=100, hp=100)
+    enemy = Agent(name="Enemy", pos=NUM_NODES - 1, stamina=100, hp=100)
     
     # Initialize game systems
-    game = Game(grid, player, enemy)
-    renderer = Renderer(screen, grid)
+    game = Game(graph, player, enemy)
+    renderer = Renderer(screen, graph)
     ui_handler = UIHandler()
     
     # Initial path computation
-    game.compute_path('BFS')
+    game.compute_player_path(current_algo)
+    game.compute_enemy_path()
+    renderer.set_theme(current_algo)
+    renderer.set_enemy_path(game.enemy_path)
     
     paused = False
-    current_algo = 'BFS'
     last_move_time = 0
     
     # Main loop
@@ -53,16 +57,56 @@ def main():
                 
                 if ui_state.algo_key and ui_state.algo_key in ALGORITHMS:
                     current_algo = ALGORITHMS[ui_state.algo_key]
-                    game.compute_path(current_algo)
+                    # Regenerate graph with appropriate layout for algorithm
+                    graph = Graph(NUM_NODES, seed=DEFAULT_SEED, 
+                                layout_type=GRAPH_LAYOUTS[current_algo])
+                    
+                    # Reset agents
+                    player.pos = 0
+                    enemy.pos = NUM_NODES - 1
+                    
+                    # Reinitialize systems
+                    game.graph = graph
+                    renderer.graph = graph
+                    renderer.set_theme(current_algo)
+                    
+                    # Compute new path
+                    game.compute_player_path(current_algo)
+                    game.compute_enemy_path()
+                    renderer.set_enemy_path(game.enemy_path)
+                
+                if ui_state.map_switch:
+                    # Generate new map with same algorithm
+                    import random
+                    new_seed = random.randint(1, 10000)
+                    graph = Graph(NUM_NODES, seed=new_seed, 
+                                layout_type=GRAPH_LAYOUTS[current_algo])
+                    
+                    # Reset agents
+                    player.pos = 0
+                    enemy.pos = NUM_NODES - 1
+                    
+                    # Reinitialize systems
+                    game.graph = graph
+                    renderer.graph = graph
+                    
+                    # Compute new path
+                    game.compute_player_path(current_algo)
+                    game.compute_enemy_path()
+                    renderer.set_enemy_path(game.enemy_path)
         
-        # Update game state
-        if not paused and current_time - last_move_time > MOVE_DELAY_MS:
-            if game.step_along_path():
-                last_move_time = current_time
+        # Update game state with dynamic animation speed
+        if not paused:
+            animation_speed_seconds = game.get_animation_speed()
+            animation_delay_ms = animation_speed_seconds * 1000
+            
+            if current_time - last_move_time > animation_delay_ms:
+                if game.step_along_path():
+                    last_move_time = current_time
+                    renderer.set_enemy_path(game.enemy_path)
         
         # Render
-        renderer.draw_grid()
-        renderer.draw_path(game.path)
+        renderer.draw_graph(game.visited_nodes)
         renderer.draw_agents(player, enemy)
         renderer.draw_labels(current_algo, game.stats, paused)
         
@@ -71,6 +115,7 @@ def main():
     
     pygame.quit()
     sys.exit()
+
 
 if __name__ == "__main__":
     main()
