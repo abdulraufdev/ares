@@ -46,7 +46,7 @@ class Ability:
     key: int  # pygame key constant
     cooldown_ms: int
     duration_ms: int = 0
-    last_used: float = 0
+    last_used: float = -999999  # Large negative number means never used
     active_until: float = 0
     
     def is_ready(self, current_time: float) -> bool:
