@@ -58,8 +58,11 @@ class Game:
         end_time = time.perf_counter()
         self.stats.compute_ms = (end_time - start_time) * 1000
         
-        # Update enemy path
-        self.enemy_path = self.path.copy()
+        # Update enemy path (skip first position which is current position)
+        if self.path and len(self.path) > 1:
+            self.enemy_path = self.path[1:]
+        else:
+            self.enemy_path = []
         self.enemy_path_index = 0
         
         # Update live stats
@@ -103,11 +106,16 @@ class Game:
         
         # Calculate path for player using A* (player uses smart pathfinding)
         from algorithms import astar
-        self.player_path, _ = astar.find_path(self.grid, self.player.pos, grid_pos)
+        path, _ = astar.find_path(self.grid, self.player.pos, grid_pos)
         
-        if self.player_path:
+        if path and len(path) > 1:
+            # Skip first position (current position)
+            self.player_path = path[1:]
             self.player_moving = True
             self.player.path_index = 0
+        else:
+            # Already at target or no path
+            self.player_moving = False
     
     def update_player_movement(self):
         """Move player along their path - ONLY if they clicked."""

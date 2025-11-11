@@ -23,3 +23,7 @@ Thumbs.db
 *.log
 *.csv
 assets/
+
+# Screenshots and test artifacts
+*.png
+*.html
