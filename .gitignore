@@ -23,3 +23,6 @@ Thumbs.db
 *.log
 *.csv
 assets/
+
+# Test files
+test_screenshot.py
