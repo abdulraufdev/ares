@@ -265,24 +265,22 @@ class GraphRenderer:
         
         # UCS shows path cost - ALWAYS show numeric value
         if self.algorithm == 'UCS':
-            # Always show g_cost, even if 0
-            lines.append(f"Path Cost: {node.g_cost:.1f}")
+            # Show static random path cost value assigned at graph creation
+            lines.append(f"Path Cost: {node.path_cost:.1f}")
         
         # Greedy algorithms show heuristic AND path cost - ALWAYS show numeric values
         if 'Greedy' in self.algorithm:
-            # h_cost is now always set via update_heuristics_to_target
-            lines.append(f"Heuristic: {node.h_cost:.1f}")
-            # Always show g_cost, even if 0
-            lines.append(f"Path Cost: {node.g_cost:.1f}")
+            # Show static random values assigned at graph creation
+            lines.append(f"Heuristic: {node.heuristic:.1f}")
+            lines.append(f"Path Cost: {node.path_cost:.1f}")
         
         # A* shows heuristic, path cost, and f(n) - ALWAYS show numeric values
         if 'A*' in self.algorithm:
-            # h_cost is now always set via update_heuristics_to_target
-            lines.append(f"Heuristic: {node.h_cost:.1f}")
-            # Always show g_cost, even if 0
-            lines.append(f"Path Cost: {node.g_cost:.1f}")
-            # Calculate f_cost on the fly for display
-            f_cost = node.h_cost + node.g_cost
+            # Show static random values assigned at graph creation
+            lines.append(f"Heuristic: {node.heuristic:.1f}")
+            lines.append(f"Path Cost: {node.path_cost:.1f}")
+            # Calculate f_cost on the fly for display (sum of static values)
+            f_cost = node.heuristic + node.path_cost
             lines.append(f"f(n) = {f_cost:.1f}")
         
         # Render tooltip

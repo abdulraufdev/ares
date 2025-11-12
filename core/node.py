@@ -17,7 +17,7 @@ class Node:
         self.pos = pos
         self.neighbors: list[tuple['Node', float]] = []  # (neighbor_node, edge_weight)
         
-        # Pathfinding metadata
+        # Pathfinding metadata (dynamic, changes during pathfinding)
         self.visited = False
         self.distance = float('inf')
         self.g_cost = 0.0  # Cost from start (for UCS, A*)
@@ -28,6 +28,10 @@ class Node:
         # Pre-calculated heuristics (for all other nodes)
         # Maps node -> heuristic distance
         self.heuristics: dict['Node', float] = {}
+        
+        # Static random values (assigned once at graph creation, never change)
+        self.heuristic = 0.0  # Random heuristic value for display
+        self.path_cost = 0.0  # Random path cost value for display
     
     def add_neighbor(self, neighbor: 'Node', weight: float):
         """Add a bidirectional connection to another node."""
