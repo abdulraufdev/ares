@@ -149,6 +149,7 @@ UI_BUTTON_RADIUS = 10
 
 # Game states
 STATE_MENU = 'menu'
+STATE_ALGORITHM_SELECTION = 'algorithm_selection'
 STATE_TUTORIAL = 'tutorial'
 STATE_PLAYING = 'playing'
 STATE_PAUSED = 'paused'

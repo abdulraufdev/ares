@@ -77,10 +77,20 @@ class Graph:
         Enforces:
         - Minimum neighbors per node: 1 (dead-ends for trapping enemy)
         - Maximum neighbors per node: 3
+        - 8-12 leaf nodes (nodes with exactly 1 neighbor) when possible
         - Most nodes should have 2-3 neighbors
         """
-        # Designate 3-5 nodes as "dead-end" candidates (only 1 neighbor)
-        num_dead_ends = random.randint(3, 5)
+        # Designate leaf nodes based on graph size
+        # For full game (28 nodes): 8-12 leaf nodes
+        # For smaller graphs: scale proportionally (min 3, max half the nodes)
+        if len(self.nodes) >= 25:
+            num_dead_ends = random.randint(8, 12)
+        else:
+            # Scale proportionally but ensure reasonable bounds
+            min_leaves = max(3, len(self.nodes) // 5)
+            max_leaves = min(len(self.nodes) // 2, len(self.nodes) - 2)
+            num_dead_ends = random.randint(min_leaves, max_leaves)
+        
         dead_end_indices = random.sample(range(len(self.nodes)), num_dead_ends)
         
         for idx, node in enumerate(self.nodes):
@@ -146,6 +156,10 @@ class Graph:
         
         # Pre-calculate all heuristics for A* and Greedy
         self._precalculate_heuristics()
+        
+        # Count actual leaf nodes for validation
+        actual_leaf_count = sum(1 for node in self.nodes if len(node.neighbors) == 1)
+        self.leaf_node_count = actual_leaf_count
         
         # Store dead-end info for debugging/verification
         self.dead_end_count = num_dead_ends

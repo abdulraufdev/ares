@@ -142,7 +142,7 @@ class RadioButton:
 
 
 class MainMenu:
-    """Main menu with algorithm selection."""
+    """Clean main menu without algorithm selection."""
     
     def __init__(self, screen_width: int, screen_height: int):
         """Initialize main menu.
@@ -153,78 +153,51 @@ class MainMenu:
         """
         self.screen_width = screen_width
         self.screen_height = screen_height
-        self.selected_algorithm = None
         
         # Fonts - using modern Segoe UI / fallback to Arial
         try:
             self.title_font = pygame.font.SysFont('Segoe UI', 48, bold=True)
             self.font = pygame.font.SysFont('Segoe UI', 20, bold=True)
-            self.algo_font = pygame.font.SysFont('Segoe UI', 18)
         except:
             self.title_font = pygame.font.SysFont('Arial', 48, bold=True)
             self.font = pygame.font.SysFont('Arial', 20, bold=True)
-            self.algo_font = pygame.font.SysFont('Arial', 18)
         
-        # Algorithm radio buttons with improved spacing
-        # Title at 80px, Tutorial button at 160px, Label at 240px, Radio buttons start at 280px
-        center_x = screen_width // 2 - 100
-        start_y = 280
-        spacing = 60
-        
-        self.radio_buttons = [
-            RadioButton(center_x, start_y, 'BFS', 'Breadth First Search'),
-            RadioButton(center_x, start_y + spacing, 'DFS', 'Depth First Search'),
-            RadioButton(center_x, start_y + spacing * 2, 'UCS', 'Uniform Cost Search'),
-            RadioButton(center_x, start_y + spacing * 3, 'Greedy (Local Min)', 'Greedy Best-First (Local Minima)'),
-            RadioButton(center_x, start_y + spacing * 4, 'Greedy (Local Max)', 'Greedy Best-First (Local Maxima)'),
-            RadioButton(center_x, start_y + spacing * 5, 'A* (Local Min)', 'A* Search (Local Minima)'),
-            RadioButton(center_x, start_y + spacing * 6, 'A* (Local Max)', 'A* Search (Local Maxima)'),
-        ]
-        
-        # Buttons with improved spacing
-        button_width = 240
-        button_height = 60
+        # Buttons - clean spacious layout
+        button_width = 300
+        button_height = 70
         button_x = screen_width // 2 - button_width // 2
+        start_y = screen_height // 2 - 50
+        spacing = 90
         
         self.tutorial_button = Button(
-            button_x, 160, button_width, button_height, 'TUTORIAL'
+            button_x, start_y, button_width, button_height, 'TUTORIAL'
         )
         
         self.start_button = Button(
-            button_x, 700, button_width, button_height, 'START GAME'
+            button_x, start_y + spacing, button_width, button_height, 'START GAME'
         )
         
         self.quit_button = Button(
-            button_x, 770, button_width, button_height, 'QUIT'
+            button_x, start_y + spacing * 2, button_width, button_height, 'QUIT'
         )
     
-    def handle_event(self, event) -> tuple[str, str | None]:
+    def handle_event(self, event) -> tuple[str, None]:
         """Handle input events.
         
         Returns:
-            Tuple of (action, selected_algorithm) where action is 'tutorial', 'start', 'quit', or ''
+            Tuple of (action, None) where action is 'tutorial', 'start', 'quit', or ''
         """
         # Check tutorial button
         if self.tutorial_button.handle_event(event):
-            return ('tutorial', self.selected_algorithm)
+            return ('tutorial', None)
         
         # Check quit button
         if self.quit_button.handle_event(event):
             return ('quit', None)
         
-        # Check start button (only if algorithm selected)
-        if self.selected_algorithm and self.start_button.handle_event(event):
-            return ('start', self.selected_algorithm)
-        
-        # Check radio buttons
-        for radio in self.radio_buttons:
-            if radio.handle_event(event):
-                # Deselect all others
-                for r in self.radio_buttons:
-                    r.selected = False
-                # Select this one
-                radio.selected = True
-                self.selected_algorithm = radio.text
+        # Check start button
+        if self.start_button.handle_event(event):
+            return ('start', None)
         
         return ('', None)
     
@@ -239,45 +212,19 @@ class MainMenu:
             b = int(45 + (55 - 45) * ratio)
             pygame.draw.line(screen, (r, g, b), (0, y), (self.screen_width, y))
         
-        # Title at 80px from top with glow effect
+        # Title centered at top
         title = self.title_font.render('ALGORITHM ARENA', True, (255, 255, 255))
-        title_rect = title.get_rect(center=(self.screen_width // 2, 80))
+        title_rect = title.get_rect(center=(self.screen_width // 2, 120))
         
         # Glow effect for title
         glow = self.title_font.render('ALGORITHM ARENA', True, (100, 150, 255))
-        glow_rect = glow.get_rect(center=(self.screen_width // 2 + 2, 82))
+        glow_rect = glow.get_rect(center=(self.screen_width // 2 + 2, 122))
         screen.blit(glow, glow_rect)
         screen.blit(title, title_rect)
         
-        # Tutorial button at 160px
+        # Draw buttons
         self.tutorial_button.draw(screen, self.font)
-        
-        # Selection label at 240px
-        label = self.font.render('SELECT ALGORITHM:', True, (220, 220, 255))
-        screen.blit(label, (self.screen_width // 2 - 100, 240))
-        
-        # Radio buttons starting at 280px
-        for radio in self.radio_buttons:
-            # Use algorithm color if available
-            color = (150, 150, 200)
-            if radio.text in THEMES:
-                color = THEMES[radio.text]['ui_accent']
-            radio.draw(screen, self.algo_font, color)
-        
-        # Start button at 700px (grayed out if no selection)
-        if not self.selected_algorithm:
-            # Draw grayed out button
-            pygame.draw.rect(screen, (60, 60, 60), self.start_button.rect, 
-                           border_radius=15)
-            pygame.draw.rect(screen, (100, 100, 100), self.start_button.rect, 3,
-                           border_radius=15)
-            text = self.font.render('START GAME', True, (120, 120, 120))
-            text_rect = text.get_rect(center=self.start_button.rect.center)
-            screen.blit(text, text_rect)
-        else:
-            self.start_button.draw(screen, self.font)
-        
-        # Quit button at 770px
+        self.start_button.draw(screen, self.font)
         self.quit_button.draw(screen, self.font)
 
 
@@ -370,3 +317,132 @@ class TutorialScreen:
         
         # Back button
         self.back_button.draw(screen, self.font)
+
+
+class AlgorithmSelectionScreen:
+    """Algorithm selection screen shown after clicking START GAME."""
+    
+    def __init__(self, screen_width: int, screen_height: int):
+        """Initialize algorithm selection screen.
+        
+        Args:
+            screen_width: Window width
+            screen_height: Window height
+        """
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        self.selected_algorithm = None
+        
+        # Fonts - using modern Segoe UI / fallback to Arial
+        try:
+            self.title_font = pygame.font.SysFont('Segoe UI', 40, bold=True)
+            self.font = pygame.font.SysFont('Segoe UI', 18, bold=True)
+            self.algo_font = pygame.font.SysFont('Segoe UI', 16)
+        except:
+            self.title_font = pygame.font.SysFont('Arial', 40, bold=True)
+            self.font = pygame.font.SysFont('Arial', 18, bold=True)
+            self.algo_font = pygame.font.SysFont('Arial', 16)
+        
+        # Algorithm radio buttons
+        center_x = screen_width // 2 - 150
+        start_y = 180
+        spacing = 55
+        
+        self.radio_buttons = [
+            RadioButton(center_x, start_y, 'BFS', 'Breadth First Search'),
+            RadioButton(center_x, start_y + spacing, 'DFS', 'Depth First Search'),
+            RadioButton(center_x, start_y + spacing * 2, 'UCS', 'Uniform Cost Search'),
+            RadioButton(center_x, start_y + spacing * 3, 'Greedy (Local Min)', 'Greedy Best-First (Local Minima)'),
+            RadioButton(center_x, start_y + spacing * 4, 'Greedy (Local Max)', 'Greedy Best-First (Local Maxima)'),
+            RadioButton(center_x, start_y + spacing * 5, 'A* (Local Min)', 'A* Search (Local Minima)'),
+            RadioButton(center_x, start_y + spacing * 6, 'A* (Local Max)', 'A* Search (Local Maxima)'),
+        ]
+        
+        # Buttons
+        button_width = 200
+        button_height = 60
+        button_y = screen_height - 100
+        
+        self.back_button = Button(
+            screen_width // 2 - button_width - 10,
+            button_y,
+            button_width, button_height,
+            'BACK'
+        )
+        
+        self.continue_button = Button(
+            screen_width // 2 + 10,
+            button_y,
+            button_width, button_height,
+            'CONTINUE'
+        )
+    
+    def handle_event(self, event) -> tuple[str, str | None]:
+        """Handle input events.
+        
+        Returns:
+            Tuple of (action, selected_algorithm) where action is 'back', 'continue', or ''
+        """
+        # Check back button
+        if self.back_button.handle_event(event):
+            return ('back', None)
+        
+        # Check continue button (only if algorithm selected)
+        if self.selected_algorithm and self.continue_button.handle_event(event):
+            return ('continue', self.selected_algorithm)
+        
+        # Check radio buttons
+        for radio in self.radio_buttons:
+            if radio.handle_event(event):
+                # Deselect all others
+                for r in self.radio_buttons:
+                    r.selected = False
+                # Select this one
+                radio.selected = True
+                self.selected_algorithm = radio.text
+        
+        return ('', None)
+    
+    def draw(self, screen):
+        """Draw the algorithm selection screen."""
+        # Modern gradient background (dark blue to purple)
+        for y in range(self.screen_height):
+            ratio = y / self.screen_height
+            r = int(15 + (35 - 15) * ratio)
+            g = int(25 + (15 - 25) * ratio)
+            b = int(45 + (55 - 45) * ratio)
+            pygame.draw.line(screen, (r, g, b), (0, y), (self.screen_width, y))
+        
+        # Title
+        title = self.title_font.render('SELECT ALGORITHM', True, (255, 255, 255))
+        title_rect = title.get_rect(center=(self.screen_width // 2, 80))
+        
+        # Glow effect for title
+        glow = self.title_font.render('SELECT ALGORITHM', True, (100, 150, 255))
+        glow_rect = glow.get_rect(center=(self.screen_width // 2 + 2, 82))
+        screen.blit(glow, glow_rect)
+        screen.blit(title, title_rect)
+        
+        # Radio buttons
+        for radio in self.radio_buttons:
+            # Use algorithm color if available
+            color = (150, 150, 200)
+            if radio.text in THEMES:
+                color = THEMES[radio.text]['ui_accent']
+            radio.draw(screen, self.algo_font, color)
+        
+        # Back button
+        self.back_button.draw(screen, self.font)
+        
+        # Continue button (grayed out if no selection)
+        if not self.selected_algorithm:
+            # Draw grayed out button
+            pygame.draw.rect(screen, (60, 60, 60), self.continue_button.rect, 
+                           border_radius=15)
+            pygame.draw.rect(screen, (100, 100, 100), self.continue_button.rect, 3,
+                           border_radius=15)
+            text = self.font.render('CONTINUE', True, (120, 120, 120))
+            text_rect = text.get_rect(center=self.continue_button.rect.center)
+            screen.blit(text, text_rect)
+        else:
+            self.continue_button.draw(screen, self.font)

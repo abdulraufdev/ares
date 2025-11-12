@@ -2,7 +2,7 @@
 import pygame
 import sys
 from config import *
-from core.menu import MainMenu, TutorialScreen, Button
+from core.menu import MainMenu, TutorialScreen, AlgorithmSelectionScreen, Button
 from core.gameplay import GameSession
 from core.graphics import GraphRenderer
 
@@ -25,6 +25,7 @@ def main():
     # UI components
     main_menu = MainMenu(WINDOW_WIDTH, WINDOW_HEIGHT)
     tutorial_screen = TutorialScreen(WINDOW_WIDTH, WINDOW_HEIGHT)
+    algorithm_selection_screen = AlgorithmSelectionScreen(WINDOW_WIDTH, WINDOW_HEIGHT)
     
     # End screen buttons
     button_width = 180
@@ -64,7 +65,14 @@ def main():
                     running = False
                 elif action == 'tutorial':
                     game_state = STATE_TUTORIAL
-                elif action == 'start' and algorithm:
+                elif action == 'start':
+                    game_state = STATE_ALGORITHM_SELECTION
+            
+            elif game_state == STATE_ALGORITHM_SELECTION:
+                action, algorithm = algorithm_selection_screen.handle_event(event)
+                if action == 'back':
+                    game_state = STATE_MENU
+                elif action == 'continue' and algorithm:
                     selected_algorithm = algorithm
                     game_session = GameSession(algorithm)
                     renderer = GraphRenderer(screen, algorithm)
@@ -145,6 +153,9 @@ def main():
         if game_state == STATE_MENU:
             main_menu.draw(screen)
         
+        elif game_state == STATE_ALGORITHM_SELECTION:
+            algorithm_selection_screen.draw(screen)
+        
         elif game_state == STATE_TUTORIAL:
             tutorial_screen.draw(screen)
         
@@ -152,14 +163,17 @@ def main():
             # Draw game world
             renderer.draw_background()
             renderer.draw_edges(game_session.graph, game_session.enemy.path)
-            renderer.draw_nodes(game_session.graph, game_session.player.node, game_session.enemy.node)
+            renderer.draw_nodes(game_session.graph, game_session.player, game_session.enemy)
+            
+            # Draw queued path visualization
+            renderer.draw_queued_path(screen, game_session.player)
             
             # Draw health bars
             player_hp = game_session.combat.player.get_health_percentage()
             enemy_hp = game_session.combat.enemy.get_health_percentage()
             renderer.draw_health_bars(
-                game_session.player.node,
-                game_session.enemy.node,
+                game_session.player,
+                game_session.enemy,
                 player_hp,
                 enemy_hp
             )
@@ -178,7 +192,7 @@ def main():
             # Draw final game state in background
             renderer.draw_background()
             renderer.draw_edges(game_session.graph, game_session.enemy.path)
-            renderer.draw_nodes(game_session.graph, game_session.player.node, game_session.enemy.node)
+            renderer.draw_nodes(game_session.graph, game_session.player, game_session.enemy)
             
             # Draw victory screen
             player_stats = game_session.get_player_stats()
@@ -194,7 +208,7 @@ def main():
             # Draw final game state in background
             renderer.draw_background()
             renderer.draw_edges(game_session.graph, game_session.enemy.path)
-            renderer.draw_nodes(game_session.graph, game_session.player.node, game_session.enemy.node)
+            renderer.draw_nodes(game_session.graph, game_session.player, game_session.enemy)
             
             # Draw defeat screen
             player_stats = game_session.get_player_stats()
