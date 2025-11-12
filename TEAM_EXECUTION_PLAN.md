@@ -18,7 +18,7 @@ Use this to coordinate work and author precise Copilot prompts.
 | Member | GitHub Username | Focus | Primary Folders | Secondary Tasks |
 |--------|-----------------|-------|-----------------|-----------------|
 | Abdul Rauf | @abdulraufdev | Search & Tactical Algorithms | `algorithms/` | Heuristics tuning, performance experiments |
-| Asaad Bin Amir | (add username) | Visuals, HUD, Sound | `core/graphics.py`, `core/sound_manager.py`, `assets/` | Readability polish, iconography |
+| Asaad Bin Amir | @Asaad-Bin-Amir | Visuals, HUD, Sound | `core/graphics.py`, `core/sound_manager.py`, `assets/` | Readability polish, iconography |
 | Basim Khurram Gul | @Basim-Gul | Gameplay integration, Map & Logging, CI/Repo | `core/`, `.github/`, root | Coordination, documentation, branch hygiene |
 
 ---

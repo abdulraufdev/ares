@@ -1,81 +1,431 @@
-"""Rendering and visualization."""
+"""Graphics rendering for Algorithm Arena."""
 import pygame
+import math
 from config import *
-from core.grid import Grid
-from core.models import Agent, Stats
+from core.node import Node
+from core.models import Stats
 
-class Renderer:
-    """Handles all drawing operations."""
+
+class GraphRenderer:
+    """Renders the graph-based game world."""
     
-    def __init__(self, screen: pygame.Surface, grid: Grid):
-        """Initialize renderer."""
+    def __init__(self, screen: pygame.Surface, algorithm: str):
+        """Initialize renderer with algorithm theme.
+        
+        Args:
+            screen: Pygame display surface
+            algorithm: Algorithm name for theme selection
+        """
         self.screen = screen
-        self.grid = grid
-        self.font = pygame.font.SysFont('Consolas', 14)
-        self.font_large = pygame.font.SysFont('Consolas', 16)
-    
-    def draw_grid(self) -> None:
-        """Draw the grid and obstacles."""
-        self.screen.fill(COLOR_BACKGROUND)
+        self.algorithm = algorithm
+        self.theme = THEMES.get(algorithm, THEMES['BFS'])
         
-        # Draw cells
-        for y in range(self.grid.h):
-            for x in range(self.grid.w):
-                rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+        # Fonts
+        self.font = pygame.font.SysFont('Arial', NODE_LABEL_FONT_SIZE)
+        self.small_font = pygame.font.SysFont('Arial', 12)
+        self.ui_font = pygame.font.SysFont('Arial', 16)
+        self.large_font = pygame.font.SysFont('Arial', 20, bold=True)
+        
+        # Tooltip
+        self.tooltip_node = None
+        self.tooltip_pos = None
+    
+    def set_theme(self, algorithm: str):
+        """Change visual theme based on algorithm."""
+        self.algorithm = algorithm
+        self.theme = THEMES.get(algorithm, THEMES['BFS'])
+    
+    def draw_background(self):
+        """Draw themed background."""
+        self.screen.fill(self.theme['background'])
+    
+    def draw_edges(self, graph, enemy_path: list[Node] = None):
+        """Draw all edges in the graph.
+        
+        Args:
+            graph: Graph object
+            enemy_path: List of nodes in enemy's current path (for highlighting)
+        """
+        # Build set of enemy path edges for quick lookup
+        enemy_edges = set()
+        if enemy_path and len(enemy_path) > 1:
+            for i in range(len(enemy_path) - 1):
+                # Add both directions since edges are bidirectional
+                enemy_edges.add((enemy_path[i], enemy_path[i + 1]))
+                enemy_edges.add((enemy_path[i + 1], enemy_path[i]))
+        
+        # Draw all edges
+        drawn = set()
+        for node in graph.nodes:
+            for neighbor, weight in node.neighbors:
+                # Only draw each edge once
+                edge_id = (min(id(node), id(neighbor)), max(id(node), id(neighbor)))
+                if edge_id in drawn:
+                    continue
+                drawn.add(edge_id)
                 
-                if self.grid.blocked[y][x]:
-                    pygame.draw.rect(self.screen, COLOR_WALL, rect)
+                # Check if this is part of enemy path
+                is_enemy_path = (node, neighbor) in enemy_edges
+                
+                # Choose color and width
+                if is_enemy_path:
+                    color = self.theme['enemy_path']
+                    width = ENEMY_PATH_WIDTH
                 else:
-                    pygame.draw.rect(self.screen, COLOR_FLOOR, rect)
+                    color = self.theme['edge']
+                    width = EDGE_WIDTH
                 
-                # Draw grid lines
-                pygame.draw.rect(self.screen, COLOR_GRID_LINE, rect, 1)
+                # Draw line
+                pygame.draw.line(self.screen, color, node.pos, neighbor.pos, width)
+                
+                # Draw weight label at midpoint
+                if not is_enemy_path:  # Don't clutter enemy path
+                    mid_x = (node.pos[0] + neighbor.pos[0]) / 2
+                    mid_y = (node.pos[1] + neighbor.pos[1]) / 2
+                    weight_text = self.small_font.render(str(int(weight)), True, self.theme['text'])
+                    weight_rect = weight_text.get_rect(center=(mid_x, mid_y))
+                    # Draw background for readability
+                    bg_rect = weight_rect.inflate(4, 2)
+                    pygame.draw.rect(self.screen, self.theme['background'], bg_rect)
+                    self.screen.blit(weight_text, weight_rect)
     
-    def draw_path(self, path: list[tuple[int, int]]) -> None:
-        """Draw the computed path."""
-        if len(path) < 2:
-            return
+    def draw_nodes(self, graph, player_node: Node, enemy_node: Node):
+        """Draw all nodes in the graph.
         
-        points = [(x * CELL_SIZE + CELL_SIZE // 2, y * CELL_SIZE + CELL_SIZE // 2) 
-                  for x, y in path]
-        pygame.draw.lines(self.screen, COLOR_PATH, False, points, 3)
+        Args:
+            graph: Graph object
+            player_node: Current player position
+            enemy_node: Current enemy position
+        """
+        for node in graph.nodes:
+            # Determine node color
+            if node == player_node:
+                color = self.theme['player']
+                draw_glow = True
+            elif node == enemy_node:
+                color = self.theme['enemy']
+                draw_glow = True
+            elif node.visited:
+                color = self.theme['node_visited']
+                draw_glow = False
+            else:
+                color = self.theme['node_default']
+                draw_glow = False
+            
+            # Draw glow effect for player/enemy
+            if draw_glow:
+                for i in range(3):
+                    radius = NODE_RADIUS + (3 - i) * 5
+                    alpha = 50 + i * 30
+                    glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surface, (*color, alpha), (radius, radius), radius)
+                    self.screen.blit(glow_surface, (node.pos[0] - radius, node.pos[1] - radius))
+            
+            # Draw node circle
+            pygame.draw.circle(self.screen, color, node.pos, NODE_RADIUS)
+            pygame.draw.circle(self.screen, self.theme['text'], node.pos, NODE_RADIUS, 2)
+            
+            # Draw label
+            label_text = self.font.render(node.label, True, (0, 0, 0))
+            label_rect = label_text.get_rect(center=node.pos)
+            self.screen.blit(label_text, label_rect)
     
-    def draw_agents(self, player: Agent, enemy: Agent) -> None:
-        """Draw player and enemy agents."""
-        # Draw player
-        px, py = player.pos
-        player_rect = pygame.Rect(px * CELL_SIZE + 4, py * CELL_SIZE + 4, 
-                                   CELL_SIZE - 8, CELL_SIZE - 8)
-        pygame.draw.rect(self.screen, COLOR_PLAYER, player_rect)
+    def draw_health_bars(self, player_node: Node, enemy_node: Node, 
+                        player_hp: float, enemy_hp: float):
+        """Draw health bars above player and enemy.
         
-        # Draw enemy
-        ex, ey = enemy.pos
-        enemy_rect = pygame.Rect(ex * CELL_SIZE + 4, ey * CELL_SIZE + 4, 
-                                  CELL_SIZE - 8, CELL_SIZE - 8)
-        pygame.draw.rect(self.screen, COLOR_ENEMY, enemy_rect)
+        Args:
+            player_node: Player's current node
+            enemy_node: Enemy's current node
+            player_hp: Player health percentage (0.0 to 1.0)
+            enemy_hp: Enemy health percentage (0.0 to 1.0)
+        """
+        bar_width = 50
+        bar_height = 6
+        
+        def draw_bar(node, hp_percent, is_player):
+            x = node.pos[0] - bar_width / 2
+            y = node.pos[1] - NODE_RADIUS - 15
+            
+            # Background
+            pygame.draw.rect(self.screen, (60, 60, 60), (x, y, bar_width, bar_height))
+            
+            # Health bar
+            hp_color = (100, 255, 100) if is_player else (255, 100, 100)
+            hp_width = bar_width * hp_percent
+            pygame.draw.rect(self.screen, hp_color, (x, y, hp_width, bar_height))
+            
+            # Border
+            pygame.draw.rect(self.screen, (200, 200, 200), (x, y, bar_width, bar_height), 1)
+        
+        draw_bar(player_node, player_hp, True)
+        draw_bar(enemy_node, enemy_hp, False)
     
-    def draw_labels(self, algo: str, stats: Stats, paused: bool) -> None:
-        """Draw HUD with controls and metrics."""
-        # Background box
-        hud_rect = pygame.Rect(10, 10, 450, 80)
-        pygame.draw.rect(self.screen, COLOR_HUD_BG, hud_rect)
-        pygame.draw.rect(self.screen, COLOR_TEXT, hud_rect, 1)
+    def draw_ui_panel(self, stats: Stats, paused: bool, game_time: int):
+        """Draw UI panel with game information.
         
-        # Title
-        title_text = self.font_large.render(f"Project ARES - Algorithm: {algo}", True, COLOR_TEXT)
-        self.screen.blit(title_text, (20, 20))
+        Args:
+            stats: Pathfinding statistics
+            paused: Whether game is paused
+            game_time: Elapsed game time in seconds
+        """
+        # Panel background
+        panel_rect = pygame.Rect(10, 10, 350, 120)
+        panel_surface = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(panel_surface, (*self.theme['background'], 200), panel_surface.get_rect(), 
+                        border_radius=10)
+        pygame.draw.rect(panel_surface, self.theme['ui_accent'], panel_surface.get_rect(), 2,
+                        border_radius=10)
+        self.screen.blit(panel_surface, panel_rect)
         
-        # Controls
-        controls = "1=BFS  2=DFS  3=UCS  4=Greedy  5=A*  |  SPACE=Pause  M=Map"
-        controls_text = self.font.render(controls, True, COLOR_TEXT)
-        self.screen.blit(controls_text, (20, 42))
+        # Algorithm name
+        y = 20
+        algo_text = self.large_font.render(f'Algorithm: {self.algorithm}', True, self.theme['ui_accent'])
+        self.screen.blit(algo_text, (20, y))
+        y += 30
         
-        # Metrics
-        metrics = f"Nodes: {stats.nodes_expanded}  Time: {stats.compute_ms:.2f}ms  Path Len: {stats.path_len}"
-        metrics_text = self.font.render(metrics, True, COLOR_TEXT)
-        self.screen.blit(metrics_text, (20, 62))
+        # Game time
+        minutes = game_time // 60
+        seconds = game_time % 60
+        time_text = self.ui_font.render(f'Time: {minutes:02d}:{seconds:02d}', True, self.theme['text'])
+        self.screen.blit(time_text, (20, y))
+        y += 25
+        
+        # Stats - algorithm specific
+        if self.algorithm in ['BFS', 'DFS']:
+            stats_text = self.ui_font.render(
+                f'Nodes Explored: {stats.nodes_expanded}  Path Length: {stats.path_len}',
+                True, self.theme['text']
+            )
+        elif self.algorithm == 'UCS':
+            stats_text = self.ui_font.render(
+                f'Path Cost: {stats.path_cost:.1f}  Nodes: {stats.nodes_expanded}  Length: {stats.path_len}',
+                True, self.theme['text']
+            )
+        elif self.algorithm == 'Greedy':
+            stats_text = self.ui_font.render(
+                f'Nodes Explored: {stats.nodes_expanded}  Path Length: {stats.path_len}',
+                True, self.theme['text']
+            )
+        else:  # A*
+            stats_text = self.ui_font.render(
+                f'f(n): {stats.path_cost:.1f}  Nodes: {stats.nodes_expanded}  Length: {stats.path_len}',
+                True, self.theme['text']
+            )
+        
+        self.screen.blit(stats_text, (20, y))
+        y += 25
+        
+        # Controls hint
+        hint = self.small_font.render('SPACE: Pause  |  ESC: Menu  |  Hover: Node Info', 
+                                     True, self.theme['text'])
+        self.screen.blit(hint, (20, y))
         
         # Pause indicator
         if paused:
-            pause_text = self.font_large.render("PAUSED", True, (255, 255, 0))
-            self.screen.blit(pause_text, (WINDOW_WIDTH - 100, 20))
+            pause_text = self.large_font.render('PAUSED', True, (255, 255, 100))
+            pause_rect = pause_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 30))
+            # Background
+            bg_rect = pause_rect.inflate(20, 10)
+            pygame.draw.rect(self.screen, (0, 0, 0, 150), bg_rect, border_radius=5)
+            self.screen.blit(pause_text, pause_rect)
+    
+    def set_tooltip(self, node: Node | None, mouse_pos: tuple[int, int]):
+        """Set tooltip for hovering over node.
+        
+        Args:
+            node: Node being hovered, or None
+            mouse_pos: Mouse position
+        """
+        self.tooltip_node = node
+        self.tooltip_pos = mouse_pos
+    
+    def draw_tooltip(self):
+        """Draw tooltip if hovering over a node."""
+        if not self.tooltip_node or not self.tooltip_pos:
+            return
+        
+        node = self.tooltip_node
+        
+        # Build tooltip lines
+        lines = [f"Node {node.label}"]
+        
+        # Add algorithm-specific information
+        if self.algorithm in ['BFS', 'DFS']:
+            if node.visited:
+                lines.append(f"Visited: Yes")
+        
+        if self.algorithm in ['UCS', 'A*']:
+            if node.visited:
+                lines.append(f"Path Cost: {node.g_cost:.1f}")
+        
+        if self.algorithm in ['Greedy', 'A*']:
+            if node.h_cost > 0:
+                lines.append(f"Heuristic: {node.h_cost:.1f}")
+        
+        if self.algorithm == 'A*':
+            if node.f_cost > 0:
+                lines.append(f"f(n) = {node.f_cost:.1f}")
+        
+        # Render tooltip
+        padding = TOOLTIP_PADDING
+        line_height = 18
+        
+        # Calculate size
+        max_width = max(self.ui_font.size(line)[0] for line in lines)
+        tooltip_width = max_width + padding * 2
+        tooltip_height = len(lines) * line_height + padding * 2
+        
+        # Position tooltip (offset from mouse, keep on screen)
+        x = self.tooltip_pos[0] + 15
+        y = self.tooltip_pos[1] + 15
+        
+        if x + tooltip_width > WINDOW_WIDTH:
+            x = self.tooltip_pos[0] - tooltip_width - 15
+        if y + tooltip_height > WINDOW_HEIGHT:
+            y = self.tooltip_pos[1] - tooltip_height - 15
+        
+        # Draw tooltip background
+        tooltip_rect = pygame.Rect(x, y, tooltip_width, tooltip_height)
+        pygame.draw.rect(self.screen, TOOLTIP_BG, tooltip_rect, border_radius=5)
+        pygame.draw.rect(self.screen, TOOLTIP_BORDER, tooltip_rect, 2, border_radius=5)
+        
+        # Draw text
+        text_y = y + padding
+        for line in lines:
+            text = self.ui_font.render(line, True, TOOLTIP_TEXT)
+            self.screen.blit(text, (x + padding, text_y))
+            text_y += line_height
+    
+    def draw_victory_screen(self, player_stats: dict, enemy_stats: dict, game_time: int):
+        """Draw victory screen with statistics.
+        
+        Args:
+            player_stats: Dictionary of player statistics
+            enemy_stats: Dictionary of enemy statistics
+            game_time: Game duration in seconds
+        """
+        # Semi-transparent overlay
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        pygame.draw.rect(overlay, (0, 0, 0, 180), overlay.get_rect())
+        self.screen.blit(overlay, (0, 0))
+        
+        # Victory box
+        box_width = 500
+        box_height = 500
+        box_x = WINDOW_WIDTH // 2 - box_width // 2
+        box_y = WINDOW_HEIGHT // 2 - box_height // 2
+        
+        box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+        pygame.draw.rect(self.screen, (40, 40, 60), box_rect, border_radius=15)
+        pygame.draw.rect(self.screen, self.theme['ui_accent'], box_rect, 3, border_radius=15)
+        
+        # Title
+        y = box_y + 30
+        title = pygame.font.SysFont('Arial', 32, bold=True).render('🎉 VICTORY! 🎉', True, (100, 255, 100))
+        title_rect = title.get_rect(centerx=WINDOW_WIDTH // 2)
+        self.screen.blit(title, (title_rect.x, y))
+        y += 50
+        
+        # Subtitle
+        minutes = game_time // 60
+        seconds = game_time % 60
+        subtitle = self.ui_font.render(f'You outsmarted the {self.algorithm} algorithm!', True, (220, 220, 220))
+        time_text = self.ui_font.render(f'Time: {minutes:02d}:{seconds:02d}', True, (220, 220, 220))
+        self.screen.blit(subtitle, (box_x + 50, y))
+        self.screen.blit(time_text, (box_x + 50, y + 25))
+        y += 70
+        
+        # Player stats
+        self._draw_stat_section('PLAYER STATS:', box_x + 50, y, [
+            f"Final Position: {player_stats.get('position', 'N/A')}",
+            f"Nodes Visited: {player_stats.get('nodes_visited', 0)}",
+            f"Final HP: {player_stats.get('hp', 0)}/100"
+        ])
+        y += 110
+        
+        # Enemy stats
+        self._draw_stat_section('ENEMY STATS:', box_x + 50, y, [
+            f"Final Position: {enemy_stats.get('position', 'N/A')}",
+            f"Nodes Explored: {enemy_stats.get('nodes_explored', 0)}",
+            f"Path Status: {enemy_stats.get('path_status', 'N/A')}"
+        ])
+        y += 110
+        
+        # Buttons (will be drawn separately)
+    
+    def draw_defeat_screen(self, player_stats: dict, enemy_stats: dict, game_time: int):
+        """Draw defeat screen with statistics.
+        
+        Args:
+            player_stats: Dictionary of player statistics
+            enemy_stats: Dictionary of enemy statistics
+            game_time: Game duration in seconds
+        """
+        # Semi-transparent overlay
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        pygame.draw.rect(overlay, (0, 0, 0, 180), overlay.get_rect())
+        self.screen.blit(overlay, (0, 0))
+        
+        # Defeat box
+        box_width = 500
+        box_height = 500
+        box_x = WINDOW_WIDTH // 2 - box_width // 2
+        box_y = WINDOW_HEIGHT // 2 - box_height // 2
+        
+        box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+        pygame.draw.rect(self.screen, (40, 40, 60), box_rect, border_radius=15)
+        pygame.draw.rect(self.screen, (255, 100, 100), box_rect, 3, border_radius=15)
+        
+        # Title
+        y = box_y + 30
+        title = pygame.font.SysFont('Arial', 32, bold=True).render('💀 DEFEAT! 💀', True, (255, 100, 100))
+        title_rect = title.get_rect(centerx=WINDOW_WIDTH // 2)
+        self.screen.blit(title, (title_rect.x, y))
+        y += 50
+        
+        # Subtitle
+        minutes = game_time // 60
+        seconds = game_time % 60
+        subtitle = self.ui_font.render(f'The {self.algorithm} algorithm caught you!', True, (220, 220, 220))
+        time_text = self.ui_font.render(f'Time Survived: {minutes:02d}:{seconds:02d}', True, (220, 220, 220))
+        self.screen.blit(subtitle, (box_x + 50, y))
+        self.screen.blit(time_text, (box_x + 50, y + 25))
+        y += 70
+        
+        # Player stats
+        self._draw_stat_section('PLAYER STATS:', box_x + 50, y, [
+            f"Final HP: 0/100",
+            f"Final Position: {player_stats.get('position', 'N/A')}",
+            f"Nodes Visited: {player_stats.get('nodes_visited', 0)}"
+        ])
+        y += 110
+        
+        # Enemy stats
+        self._draw_stat_section('ENEMY STATS:', box_x + 50, y, [
+            f"Nodes Explored: {enemy_stats.get('nodes_explored', 0)}",
+            f"Final Path Cost: {enemy_stats.get('path_cost', 0):.1f}",
+            f"Path Length: {enemy_stats.get('path_length', 0)} nodes"
+        ])
+        y += 110
+        
+        # Enemy path (if available)
+        if enemy_stats.get('path_string'):
+            path_label = self.ui_font.render('ENEMY\'S WINNING PATH:', True, (200, 200, 200))
+            self.screen.blit(path_label, (box_x + 50, y))
+            y += 25
+            path_text = self.small_font.render(enemy_stats['path_string'], True, (180, 180, 180))
+            self.screen.blit(path_text, (box_x + 50, y))
+    
+    def _draw_stat_section(self, title: str, x: int, y: int, stats: list[str]):
+        """Helper to draw a section of statistics."""
+        # Title
+        title_text = pygame.font.SysFont('Arial', 18, bold=True).render(title, True, (200, 200, 200))
+        self.screen.blit(title_text, (x, y))
+        y += 25
+        
+        # Stats
+        for stat in stats:
+            stat_text = self.ui_font.render(f"├─ {stat}", True, (180, 180, 180))
+            self.screen.blit(stat_text, (x, y))
+            y += 22
