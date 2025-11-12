@@ -67,12 +67,14 @@ class PlayerEntity:
             weight = self.move_from.get_weight_to(target_node)
             duration_seconds = 0.2 + (weight * 0.1)
             self.move_duration = int(duration_seconds * 1000)
-        elif algorithm == 'Greedy':
+        elif 'Greedy' in algorithm:
             duration_seconds = 0.3 + (target_node.h_cost * 0.02)
             self.move_duration = int(min(duration_seconds, 1.5) * 1000)
-        else:  # A*
+        elif 'A*' in algorithm:
             duration_seconds = 0.2 + (target_node.f_cost * 0.015)
             self.move_duration = int(min(duration_seconds, 1.5) * 1000)
+        else:
+            self.move_duration = int(ANIMATION_BASE_SPEED * 1000)
     
     def update(self, current_time: int) -> bool:
         """Update player movement.

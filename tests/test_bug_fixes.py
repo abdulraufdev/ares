@@ -15,8 +15,10 @@ class TestBugFix1_EnemySpeed:
         assert ENEMY_SPEEDS['BFS'] == 800, "BFS speed should be 800ms"
         assert ENEMY_SPEEDS['DFS'] == 800, "DFS speed should be 800ms"
         assert ENEMY_SPEEDS['UCS'] == 700, "UCS speed should be 700ms"
-        assert ENEMY_SPEEDS['Greedy'] == 600, "Greedy speed should be 600ms"
-        assert ENEMY_SPEEDS['A*'] == 700, "A* speed should be 700ms"
+        assert ENEMY_SPEEDS['Greedy (Local Min)'] == 600, "Greedy (Local Min) speed should be 600ms"
+        assert ENEMY_SPEEDS['Greedy (Local Max)'] == 600, "Greedy (Local Max) speed should be 600ms"
+        assert ENEMY_SPEEDS['A* (Local Min)'] == 700, "A* (Local Min) speed should be 700ms"
+        assert ENEMY_SPEEDS['A* (Local Max)'] == 700, "A* (Local Max) speed should be 700ms"
 
 
 class TestBugFix2_EnemyStickingBug:
@@ -168,7 +170,8 @@ class TestBugFix4_PathCostDisplay:
         graph = Graph(WINDOW_WIDTH, WINDOW_HEIGHT, 10, seed=42)
         node = graph.nodes[0]
         
-        for algo in ['BFS', 'DFS', 'UCS', 'Greedy', 'A*']:
+        for algo in ['BFS', 'DFS', 'UCS', 'Greedy (Local Min)', 'Greedy (Local Max)', 
+                     'A* (Local Min)', 'A* (Local Max)']:
             path, stats = find_path(algo, graph, node, node)
             assert stats.path_cost == 0.0, f"{algo} should have 0 path cost when start equals goal"
     
