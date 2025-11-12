@@ -128,15 +128,20 @@ class MainMenu:
         self.screen_height = screen_height
         self.selected_algorithm = None
         
-        # Fonts
-        self.title_font = pygame.font.SysFont('Arial', 36, bold=True)
-        self.font = pygame.font.SysFont('Arial', 18)
-        self.small_font = pygame.font.SysFont('Arial', 14)
+        # Fonts - using modern Segoe UI / fallback to Arial
+        try:
+            self.title_font = pygame.font.SysFont('Segoe UI', 42, bold=True)
+            self.font = pygame.font.SysFont('Segoe UI', 18)
+            self.small_font = pygame.font.SysFont('Segoe UI', 15)
+        except:
+            self.title_font = pygame.font.SysFont('Arial', 42, bold=True)
+            self.font = pygame.font.SysFont('Arial', 18)
+            self.small_font = pygame.font.SysFont('Arial', 15)
         
-        # Algorithm radio buttons
+        # Algorithm radio buttons with improved spacing
         center_x = screen_width // 2 - 100
-        start_y = 220
-        spacing = 50
+        start_y = 260
+        spacing = 55  # Increased from 50
         
         self.radio_buttons = [
             RadioButton(center_x, start_y, 'BFS', 'Breadth First Search'),
@@ -146,21 +151,21 @@ class MainMenu:
             RadioButton(center_x, start_y + spacing * 4, 'A*', 'A* Search'),
         ]
         
-        # Buttons
-        button_width = 200
-        button_height = 50
+        # Buttons with improved spacing
+        button_width = 220  # Slightly wider
+        button_height = 55  # Slightly taller
         button_x = screen_width // 2 - button_width // 2
         
         self.tutorial_button = Button(
-            button_x, 140, button_width, button_height, 'TUTORIAL'
+            button_x, 150, button_width, button_height, 'TUTORIAL'
         )
         
         self.start_button = Button(
-            button_x, 520, button_width, button_height, 'START GAME'
+            button_x, 550, button_width, button_height, 'START GAME'
         )
         
         self.quit_button = Button(
-            button_x, 590, button_width, button_height, 'QUIT'
+            button_x, 630, button_width, button_height, 'QUIT'
         )
     
     def handle_event(self, event) -> tuple[str, str | None]:
@@ -205,9 +210,9 @@ class MainMenu:
         # Tutorial button
         self.tutorial_button.draw(screen, self.font)
         
-        # Selection label
+        # Selection label with increased spacing
         label = self.font.render('SELECT ALGORITHM:', True, (200, 200, 200))
-        screen.blit(label, (self.screen_width // 2 - 100, 185))
+        screen.blit(label, (self.screen_width // 2 - 100, 220))
         
         # Radio buttons
         for radio in self.radio_buttons:
@@ -247,10 +252,15 @@ class TutorialScreen:
         self.screen_width = screen_width
         self.screen_height = screen_height
         
-        # Fonts
-        self.title_font = pygame.font.SysFont('Arial', 28, bold=True)
-        self.heading_font = pygame.font.SysFont('Arial', 18, bold=True)
-        self.font = pygame.font.SysFont('Arial', 16)
+        # Fonts - using modern Segoe UI / fallback to Arial
+        try:
+            self.title_font = pygame.font.SysFont('Segoe UI', 30, bold=True)
+            self.heading_font = pygame.font.SysFont('Segoe UI', 19, bold=True)
+            self.font = pygame.font.SysFont('Segoe UI', 17)
+        except:
+            self.title_font = pygame.font.SysFont('Arial', 30, bold=True)
+            self.heading_font = pygame.font.SysFont('Arial', 19, bold=True)
+            self.font = pygame.font.SysFont('Arial', 17)
         
         # Back button
         button_width = 200
