@@ -46,6 +46,10 @@ class Node:
                 return weight
         return float('inf')
     
+    def is_leaf(self) -> bool:
+        """Check if this node is a leaf node (dead-end with only 1 neighbor)."""
+        return len(self.neighbors) == 1
+    
     def distance_to(self, other: 'Node') -> float:
         """Calculate Euclidean distance to another node."""
         dx = self.pos[0] - other.pos[0]

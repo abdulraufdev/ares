@@ -121,6 +121,10 @@ class EnemyAI:
         self.move_delay = ENEMY_SPEEDS.get(algorithm, 500)
         self.target_node = None
         self.stats = Stats()
+        
+        # Track visited leaf nodes for BFS/DFS/UCS
+        # Once a leaf is visited, enemy cannot go there again
+        self.visited_leaves: set[Node] = set()
     
     def recalculate_path(self, target_node: Node):
         """Recalculate path to target.
@@ -134,7 +138,14 @@ class EnemyAI:
         self.target_node = target_node
         
         # Find path using algorithm
-        self.path, self.stats = find_path(self.algorithm, self.graph, self.node, target_node)
+        # Pass visited_leaves for BFS/DFS/UCS
+        if self.algorithm in ['BFS', 'DFS', 'UCS']:
+            self.path, self.stats = find_path(self.algorithm, self.graph, self.node, 
+                                             target_node, self.visited_leaves)
+        else:
+            # Greedy and A* variants don't use visited_leaves
+            self.path, self.stats = find_path(self.algorithm, self.graph, self.node, target_node)
+        
         self.path_index = 0
     
     def update(self, current_time: int, player_node: Node) -> bool:

@@ -5,18 +5,29 @@ from core.node import Node
 from core.models import Stats
 
 
-def bfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def bfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Breadth-First Search on graph.
+    
+    BFS can revisit regular nodes but cannot revisit leaf nodes that were
+    already explored.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_leaves: Set of leaf nodes already visited (cannot revisit)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_leaves is None:
+        visited_leaves = set()
+    
+    # If goal is a visited leaf, no path possible
+    if goal_node.is_leaf() and goal_node in visited_leaves:
+        return [], stats
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -34,6 +45,10 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
         current = frontier.popleft()
         stats.nodes_expanded += 1
         
+        # Track visited leaves
+        if current.is_leaf() and current != start_node:
+            visited_leaves.add(current)
+        
         if current == goal_node:
             # Reconstruct path
             path = []
@@ -54,6 +69,10 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
             return path, stats
         
         for neighbor, weight in current.neighbors:
+            # Skip if neighbor is a visited leaf
+            if neighbor.is_leaf() and neighbor in visited_leaves:
+                continue
+            
             if not neighbor.visited:
                 neighbor.visited = True
                 neighbor.parent = current
@@ -62,18 +81,29 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
     return [], stats
 
 
-def dfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def dfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Depth-First Search on graph.
+    
+    DFS can revisit regular nodes but cannot revisit leaf nodes that were
+    already explored.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_leaves: Set of leaf nodes already visited (cannot revisit)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_leaves is None:
+        visited_leaves = set()
+    
+    # If goal is a visited leaf, no path possible
+    if goal_node.is_leaf() and goal_node in visited_leaves:
+        return [], stats
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -91,6 +121,10 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
         current = stack.pop()
         stats.nodes_expanded += 1
         
+        # Track visited leaves
+        if current.is_leaf() and current != start_node:
+            visited_leaves.add(current)
+        
         if current == goal_node:
             # Reconstruct path
             path = []
@@ -111,6 +145,10 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
             return path, stats
         
         for neighbor, weight in current.neighbors:
+            # Skip if neighbor is a visited leaf
+            if neighbor.is_leaf() and neighbor in visited_leaves:
+                continue
+            
             if not neighbor.visited:
                 neighbor.visited = True
                 neighbor.parent = current
@@ -119,18 +157,29 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
     return [], stats
 
 
-def ucs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def ucs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Uniform Cost Search on graph.
+    
+    UCS can revisit regular nodes but cannot revisit leaf nodes that were
+    already explored.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_leaves: Set of leaf nodes already visited (cannot revisit)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_leaves is None:
+        visited_leaves = set()
+    
+    # If goal is a visited leaf, no path possible
+    if goal_node.is_leaf() and goal_node in visited_leaves:
+        return [], stats
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -149,6 +198,10 @@ def ucs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
         cost, _, current = heapq.heappop(frontier)
         stats.nodes_expanded += 1
         
+        # Track visited leaves
+        if current.is_leaf() and current != start_node:
+            visited_leaves.add(current)
+        
         if current == goal_node:
             # Reconstruct path
             path = []
@@ -162,6 +215,10 @@ def ucs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
             return path, stats
         
         for neighbor, weight in current.neighbors:
+            # Skip if neighbor is a visited leaf
+            if neighbor.is_leaf() and neighbor in visited_leaves:
+                continue
+            
             new_cost = current.g_cost + weight
             
             if not neighbor.visited or new_cost < neighbor.g_cost:
@@ -560,7 +617,7 @@ def astar_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tuple
 
 
 # Algorithm dispatcher
-def find_path(algorithm: str, graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def find_path(algorithm: str, graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using specified algorithm.
     
     Args:
@@ -568,16 +625,17 @@ def find_path(algorithm: str, graph, start_node: Node, goal_node: Node) -> tuple
         graph: Graph object
         start_node: Starting node
         goal_node: Target node
+        visited_leaves: Set of already-visited leaf nodes (for BFS/DFS/UCS)
         
     Returns:
         Tuple of (path, stats)
     """
     if algorithm == 'BFS':
-        return bfs_find_path(graph, start_node, goal_node)
+        return bfs_find_path(graph, start_node, goal_node, visited_leaves)
     elif algorithm == 'DFS':
-        return dfs_find_path(graph, start_node, goal_node)
+        return dfs_find_path(graph, start_node, goal_node, visited_leaves)
     elif algorithm == 'UCS':
-        return ucs_find_path(graph, start_node, goal_node)
+        return ucs_find_path(graph, start_node, goal_node, visited_leaves)
     elif algorithm == 'Greedy (Local Min)':
         return greedy_local_min_find_path(graph, start_node, goal_node)
     elif algorithm == 'Greedy (Local Max)':
