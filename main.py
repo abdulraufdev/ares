@@ -197,7 +197,8 @@ def main():
             # Draw victory screen
             player_stats = game_session.get_player_stats()
             enemy_stats = game_session.get_enemy_stats()
-            renderer.draw_victory_screen(player_stats, enemy_stats, game_session.game_time)
+            victory_reason = getattr(game_session, 'victory_reason', "")
+            renderer.draw_victory_screen(player_stats, enemy_stats, game_session.game_time, victory_reason)
             
             # Draw buttons
             button_font = pygame.font.SysFont('Arial', 16)

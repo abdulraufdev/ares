@@ -313,13 +313,14 @@ class GraphRenderer:
             self.screen.blit(text, (x + padding, text_y))
             text_y += line_height
     
-    def draw_victory_screen(self, player_stats: dict, enemy_stats: dict, game_time: int):
+    def draw_victory_screen(self, player_stats: dict, enemy_stats: dict, game_time: int, victory_reason: str = ""):
         """Draw victory screen with statistics.
         
         Args:
             player_stats: Dictionary of player statistics
             enemy_stats: Dictionary of enemy statistics
             game_time: Game duration in seconds
+            victory_reason: Reason for victory ("enemy_stuck", "combat", or "")
         """
         # Semi-transparent overlay
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
@@ -343,10 +344,15 @@ class GraphRenderer:
         self.screen.blit(title, (title_rect.x, y))
         y += 50
         
-        # Subtitle
+        # Subtitle - show reason for victory
         minutes = game_time // 60
         seconds = game_time % 60
-        subtitle = self.ui_font.render(f'You outsmarted the {self.algorithm} algorithm!', True, (220, 220, 220))
+        
+        if victory_reason == "enemy_stuck":
+            subtitle = self.ui_font.render('Enemy got stuck in a dead-end!', True, (220, 220, 220))
+        else:
+            subtitle = self.ui_font.render(f'You outsmarted the {self.algorithm} algorithm!', True, (220, 220, 220))
+        
         time_text = self.ui_font.render(f'Time: {minutes:02d}:{seconds:02d}', True, (220, 220, 220))
         self.screen.blit(subtitle, (box_x + 50, y))
         self.screen.blit(time_text, (box_x + 50, y + 25))
