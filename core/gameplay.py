@@ -122,6 +122,12 @@ class EnemyAI:
         self.target_node = None
         self.stats = Stats()
         
+        # Track ALL visited nodes across all path calculations
+        # This enforces algorithmic constraints:
+        # - For BFS/DFS/UCS: Track visited leaf nodes
+        # - For Greedy/A*: Track ALL nodes (no backtracking)
+        self.visited_nodes: set[Node] = set()
+        
         # Track visited leaf nodes for BFS/DFS/UCS
         # Once a leaf is visited, enemy cannot go there again
         self.visited_leaves: set[Node] = set()
@@ -137,14 +143,16 @@ class EnemyAI:
         
         self.target_node = target_node
         
-        # Find path using algorithm
-        # Pass visited_leaves for BFS/DFS/UCS
+        # Find path using algorithm with persistent visited node tracking
+        # BFS/DFS/UCS: Pass both visited_leaves and visited_nodes
+        # Greedy/A*: Pass visited_nodes for strict no-backtracking enforcement
         if self.algorithm in ['BFS', 'DFS', 'UCS']:
             self.path, self.stats = find_path(self.algorithm, self.graph, self.node, 
-                                             target_node, self.visited_leaves)
+                                             target_node, self.visited_leaves, self.visited_nodes)
         else:
-            # Greedy and A* variants don't use visited_leaves
-            self.path, self.stats = find_path(self.algorithm, self.graph, self.node, target_node)
+            # Greedy and A* variants use visited_nodes (no backtracking)
+            self.path, self.stats = find_path(self.algorithm, self.graph, self.node, 
+                                             target_node, None, self.visited_nodes)
         
         self.path_index = 0
     
