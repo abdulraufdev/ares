@@ -144,6 +144,9 @@ class Graph:
         # Ensure graph is fully connected (no isolated components)
         self._ensure_connected()
         
+        # Pre-calculate all heuristics for A* and Greedy
+        self._precalculate_heuristics()
+        
         # Store dead-end info for debugging/verification
         self.dead_end_count = num_dead_ends
     
@@ -182,6 +185,17 @@ class Graph:
                 weight = random.randint(1, 10)
                 node.add_neighbor(closest, weight)
                 visited.add(node)
+    
+    def _precalculate_heuristics(self):
+        """Pre-calculate heuristics between all node pairs for A* and Greedy.
+        
+        This prevents "Calculating heuristic..." messages during gameplay.
+        """
+        for node in self.nodes:
+            for other_node in self.nodes:
+                if node != other_node:
+                    # Store Euclidean distance as heuristic
+                    node.heuristics[other_node] = node.distance_to(other_node)
     
     def get_node_by_label(self, label: str) -> Node | None:
         """Find node by its label."""

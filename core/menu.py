@@ -140,15 +140,17 @@ class MainMenu:
         
         # Algorithm radio buttons with improved spacing
         center_x = screen_width // 2 - 100
-        start_y = 260
-        spacing = 55  # Increased from 50
+        start_y = 200
+        spacing = 50
         
         self.radio_buttons = [
             RadioButton(center_x, start_y, 'BFS', 'Breadth First Search'),
             RadioButton(center_x, start_y + spacing, 'DFS', 'Depth First Search'),
             RadioButton(center_x, start_y + spacing * 2, 'UCS', 'Uniform Cost Search'),
-            RadioButton(center_x, start_y + spacing * 3, 'Greedy', 'Greedy Best-First'),
-            RadioButton(center_x, start_y + spacing * 4, 'A*', 'A* Search'),
+            RadioButton(center_x, start_y + spacing * 3, 'Greedy (Local Min)', 'Greedy Best-First (Local Minima)'),
+            RadioButton(center_x, start_y + spacing * 4, 'Greedy (Local Max)', 'Greedy Best-First (Local Maxima)'),
+            RadioButton(center_x, start_y + spacing * 5, 'A* (Local Min)', 'A* Search (Local Minima)'),
+            RadioButton(center_x, start_y + spacing * 6, 'A* (Local Max)', 'A* Search (Local Maxima)'),
         ]
         
         # Buttons with improved spacing
@@ -157,15 +159,15 @@ class MainMenu:
         button_x = screen_width // 2 - button_width // 2
         
         self.tutorial_button = Button(
-            button_x, 150, button_width, button_height, 'TUTORIAL'
+            button_x, 100, button_width, button_height, 'TUTORIAL'
         )
         
         self.start_button = Button(
-            button_x, 550, button_width, button_height, 'START GAME'
+            button_x, 570, button_width, button_height, 'START GAME'
         )
         
         self.quit_button = Button(
-            button_x, 630, button_width, button_height, 'QUIT'
+            button_x, 650, button_width, button_height, 'QUIT'
         )
     
     def handle_event(self, event) -> tuple[str, str | None]:
@@ -212,7 +214,7 @@ class MainMenu:
         
         # Selection label with increased spacing
         label = self.font.render('SELECT ALGORITHM:', True, (200, 200, 200))
-        screen.blit(label, (self.screen_width // 2 - 100, 220))
+        screen.blit(label, (self.screen_width // 2 - 100, 170))
         
         # Radio buttons
         for radio in self.radio_buttons:

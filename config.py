@@ -16,7 +16,15 @@ EDGE_WIDTH = 2
 ENEMY_PATH_WIDTH = 4
 
 # Algorithm names
-ALGORITHMS = ['BFS', 'DFS', 'UCS', 'Greedy', 'A*']
+ALGORITHMS = [
+    'BFS',
+    'DFS',
+    'UCS',
+    'Greedy (Local Min)',
+    'Greedy (Local Max)',
+    'A* (Local Min)',
+    'A* (Local Max)'
+]
 
 # Algorithm-specific themes
 THEMES = {
@@ -56,7 +64,7 @@ THEMES = {
         'text': (200, 255, 220),
         'ui_accent': (100, 255, 150),
     },
-    'Greedy': {
+    'Greedy (Local Min)': {
         'name': 'Lightning Yellow',
         'background': (35, 30, 15),
         'node_default': (120, 100, 60),
@@ -68,7 +76,31 @@ THEMES = {
         'text': (255, 240, 200),
         'ui_accent': (255, 230, 100),
     },
-    'A*': {
+    'Greedy (Local Max)': {
+        'name': 'Lightning Yellow',
+        'background': (35, 30, 15),
+        'node_default': (120, 100, 60),
+        'node_visited': (90, 75, 45),
+        'player': (255, 230, 100),
+        'enemy': (255, 100, 100),
+        'enemy_path': (255, 255, 100),
+        'edge': (140, 120, 80),
+        'text': (255, 240, 200),
+        'ui_accent': (255, 230, 100),
+    },
+    'A* (Local Min)': {
+        'name': 'Desert Orange',
+        'background': (35, 20, 15),
+        'node_default': (120, 80, 60),
+        'node_visited': (90, 60, 45),
+        'player': (255, 150, 80),
+        'enemy': (255, 100, 100),
+        'enemy_path': (255, 100, 50),
+        'edge': (140, 100, 80),
+        'text': (255, 220, 200),
+        'ui_accent': (255, 150, 80),
+    },
+    'A* (Local Max)': {
         'name': 'Desert Orange',
         'background': (35, 20, 15),
         'node_default': (120, 80, 60),
@@ -87,8 +119,10 @@ ENEMY_SPEEDS = {
     'BFS': 800,     # milliseconds between moves
     'DFS': 800,
     'UCS': 700,
-    'Greedy': 600,  # Faster - rushes!
-    'A*': 700
+    'Greedy (Local Min)': 600,  # Faster - rushes!
+    'Greedy (Local Max)': 600,
+    'A* (Local Min)': 700,
+    'A* (Local Max)': 700
 }
 
 # Animation settings
