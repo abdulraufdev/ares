@@ -29,6 +29,10 @@ class PlayerEntity:
     def can_move_to(self, target_node: Node) -> bool:
         """Check if player can move to target node.
         
+        Player can ALWAYS move to adjacent nodes, even when:
+        - Enemy is on the same node (allows escape from combat)
+        - Taking damage from enemy
+        
         Args:
             target_node: Node to move to
             

@@ -72,36 +72,66 @@ class Graph:
                 self.nodes.append(Node(label, (x, y)))
     
     def _connect_nodes(self):
-        """Create edges between nodes for fully connected graph."""
-        # Each node should connect to 3-6 neighbors
-        target_neighbors = random.randint(3, 6)
+        """Create edges between nodes for fully connected graph with strategic positions."""
+        # Create strategic variety in node connectivity
+        # Some nodes will be corner/edge nodes with fewer connections - safe zones for BFS/DFS
+        # Some will have many neighbors (4-6) - junction points
         
-        for node in self.nodes:
+        # Designate 3-5 nodes as "safe zone" candidates (prefer corner nodes)
+        num_safe_zones = random.randint(3, 5)
+        safe_zone_indices = random.sample(range(len(self.nodes)), num_safe_zones)
+        
+        for idx, node in enumerate(self.nodes):
             # Find closest nodes that aren't already neighbors
             distances = []
-            for other in self.nodes:
+            for other_idx, other in enumerate(self.nodes):
                 if other == node:
                     continue
                 if any(n == other for n, _ in node.neighbors):
                     continue
+                    
+                # Avoid connecting TO safe zones unless necessary
+                if other_idx in safe_zone_indices and idx not in safe_zone_indices:
+                    # Only connect to safe zones if they're very close
+                    if node.distance_to(other) > 150:
+                        continue
+                        
                 dist = node.distance_to(other)
-                distances.append((dist, other))
+                distances.append((dist, other, other_idx))
             
             # Sort by distance and connect to closest
             distances.sort(key=lambda x: x[0])
             
-            # Connect to ensure target neighbors (but at least 2)
+            # Determine target neighbors based on node type
+            if idx in safe_zone_indices:
+                # Safe zone nodes: only 1-2 neighbors (dead-ends)
+                target_neighbors = random.randint(1, 2)
+            else:
+                # Regular nodes: 3-6 neighbors
+                target_neighbors = random.randint(3, 6)
+            
+            # Connect to ensure target neighbors (but at least 1)
             current_neighbors = len(node.neighbors)
-            to_add = max(2, target_neighbors - current_neighbors)
+            to_add = max(1, target_neighbors - current_neighbors)
             
             for i in range(min(to_add, len(distances))):
-                dist, neighbor = distances[i]
-                # Weight between 1 and 10, biased toward lower values
-                weight = random.randint(1, 10)
+                dist, neighbor, neighbor_idx = distances[i]
+                
+                # Strategic weight assignment
+                if idx in safe_zone_indices or neighbor_idx in safe_zone_indices:
+                    # High-cost paths to/from safe zones (for UCS/A* strategy)
+                    weight = random.randint(7, 10)
+                else:
+                    # Regular weights - mix of low and high
+                    weight = random.randint(1, 10)
+                
                 node.add_neighbor(neighbor, weight)
         
         # Ensure graph is fully connected (no isolated components)
         self._ensure_connected()
+        
+        # Store safe zone info for debugging/verification
+        self.safe_zone_count = num_safe_zones
     
     def _ensure_connected(self):
         """Ensure all nodes are reachable from any node."""

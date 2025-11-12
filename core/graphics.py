@@ -20,11 +20,17 @@ class GraphRenderer:
         self.algorithm = algorithm
         self.theme = THEMES.get(algorithm, THEMES['BFS'])
         
-        # Fonts
-        self.font = pygame.font.SysFont('Arial', NODE_LABEL_FONT_SIZE)
-        self.small_font = pygame.font.SysFont('Arial', 12)
-        self.ui_font = pygame.font.SysFont('Arial', 16)
-        self.large_font = pygame.font.SysFont('Arial', 20, bold=True)
+        # Fonts - using modern Segoe UI / fallback to Arial
+        try:
+            self.font = pygame.font.SysFont('Segoe UI', NODE_LABEL_FONT_SIZE)
+            self.small_font = pygame.font.SysFont('Segoe UI', 12)
+            self.ui_font = pygame.font.SysFont('Segoe UI', 17)
+            self.large_font = pygame.font.SysFont('Segoe UI', 22, bold=True)
+        except:
+            self.font = pygame.font.SysFont('Arial', NODE_LABEL_FONT_SIZE)
+            self.small_font = pygame.font.SysFont('Arial', 12)
+            self.ui_font = pygame.font.SysFont('Arial', 17)
+            self.large_font = pygame.font.SysFont('Arial', 22, bold=True)
         
         # Tooltip
         self.tooltip_node = None
@@ -165,12 +171,12 @@ class GraphRenderer:
         """Draw UI panel with game information.
         
         Args:
-            stats: Pathfinding statistics
+            stats: Pathfinding statistics (hidden during gameplay)
             paused: Whether game is paused
             game_time: Elapsed game time in seconds
         """
-        # Panel background
-        panel_rect = pygame.Rect(10, 10, 350, 120)
+        # Panel background - made smaller since we removed stats
+        panel_rect = pygame.Rect(10, 10, 300, 80)
         panel_surface = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
         pygame.draw.rect(panel_surface, (*self.theme['background'], 200), panel_surface.get_rect(), 
                         border_radius=10)
@@ -189,45 +195,19 @@ class GraphRenderer:
         seconds = game_time % 60
         time_text = self.ui_font.render(f'Time: {minutes:02d}:{seconds:02d}', True, self.theme['text'])
         self.screen.blit(time_text, (20, y))
-        y += 25
         
-        # Stats - algorithm specific
-        if self.algorithm in ['BFS', 'DFS']:
-            stats_text = self.ui_font.render(
-                f'Nodes Explored: {stats.nodes_expanded}  Path Length: {stats.path_len}',
-                True, self.theme['text']
-            )
-        elif self.algorithm == 'UCS':
-            stats_text = self.ui_font.render(
-                f'Path Cost: {stats.path_cost:.1f}  Nodes: {stats.nodes_expanded}  Length: {stats.path_len}',
-                True, self.theme['text']
-            )
-        elif self.algorithm == 'Greedy':
-            stats_text = self.ui_font.render(
-                f'Nodes Explored: {stats.nodes_expanded}  Path Length: {stats.path_len}',
-                True, self.theme['text']
-            )
-        else:  # A*
-            stats_text = self.ui_font.render(
-                f'f(n): {stats.path_cost:.1f}  Nodes: {stats.nodes_expanded}  Length: {stats.path_len}',
-                True, self.theme['text']
-            )
-        
-        self.screen.blit(stats_text, (20, y))
-        y += 25
-        
-        # Controls hint
+        # Controls hint moved to bottom of screen
         hint = self.small_font.render('SPACE: Pause  |  ESC: Menu  |  Hover: Node Info', 
                                      True, self.theme['text'])
-        self.screen.blit(hint, (20, y))
+        self.screen.blit(hint, (10, WINDOW_HEIGHT - 25))
         
         # Pause indicator
         if paused:
             pause_text = self.large_font.render('PAUSED', True, (255, 255, 100))
-            pause_rect = pause_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 30))
+            pause_rect = pause_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
             # Background
-            bg_rect = pause_rect.inflate(20, 10)
-            pygame.draw.rect(self.screen, (0, 0, 0, 150), bg_rect, border_radius=5)
+            bg_rect = pause_rect.inflate(40, 20)
+            pygame.draw.rect(self.screen, (0, 0, 0, 180), bg_rect, border_radius=8)
             self.screen.blit(pause_text, pause_rect)
     
     def set_tooltip(self, node: Node | None, mouse_pos: tuple[int, int]):
@@ -247,25 +227,33 @@ class GraphRenderer:
         
         node = self.tooltip_node
         
-        # Build tooltip lines
+        # Build tooltip lines - ALWAYS show for every node
         lines = [f"Node {node.label}"]
         
-        # Add algorithm-specific information
+        # Show neighbor count for all nodes
+        lines.append(f"Neighbors: {len(node.neighbors)}")
+        
+        # Add algorithm-specific information - show for all nodes, not just visited
         if self.algorithm in ['BFS', 'DFS']:
-            if node.visited:
-                lines.append(f"Visited: Yes")
+            lines.append(f"Visited: {'Yes' if node.visited else 'No'}")
         
         if self.algorithm in ['UCS', 'A*']:
-            if node.visited:
+            if node.g_cost > 0 or node.visited:
                 lines.append(f"Path Cost: {node.g_cost:.1f}")
+            else:
+                lines.append(f"Path Cost: Not explored")
         
         if self.algorithm in ['Greedy', 'A*']:
             if node.h_cost > 0:
                 lines.append(f"Heuristic: {node.h_cost:.1f}")
+            else:
+                lines.append(f"Heuristic: Not calculated")
         
         if self.algorithm == 'A*':
             if node.f_cost > 0:
                 lines.append(f"f(n) = {node.f_cost:.1f}")
+            else:
+                lines.append(f"f(n) = Not calculated")
         
         # Render tooltip
         padding = TOOLTIP_PADDING
