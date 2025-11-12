@@ -20,11 +20,75 @@ class PlayerEntity:
         """
         self.node = start_node
         self.nodes_visited = 0
+        
+        # Animation properties
+        self.visual_pos = start_node.pos  # Rendered position
+        self.animating = False
+        self.animation_start_time = 0
+        self.animation_duration = 400  # milliseconds
+        self.animation_from = start_node.pos
+        self.animation_to = start_node.pos
+        
+        # Queue-based pre-move system
+        self.move_queue = []  # List of Node objects
+        
+        # Legacy properties for compatibility
         self.move_start_time = 0
         self.is_moving = False
         self.move_from = None
         self.move_to = None
         self.move_duration = 0
+    
+    def ease_in_out_cubic(self, t: float) -> float:
+        """Smooth easing function for animations.
+        
+        Args:
+            t: Progress from 0.0 to 1.0
+            
+        Returns:
+            Eased progress value
+        """
+        return t * t * (3 - 2 * t)
+    
+    def queue_move(self, target_node: Node) -> bool:
+        """Add to queue if adjacent to last queued node.
+        
+        Args:
+            target_node: Node to add to queue
+            
+        Returns:
+            True if successfully added to queue
+        """
+        if not self.move_queue:
+            # First node in queue - check adjacency to current position
+            if target_node in [n for n, _ in self.node.neighbors]:
+                self.move_queue.append(target_node)
+                return True
+        else:
+            # Check adjacency to last node in queue
+            last_node = self.move_queue[-1]
+            if target_node in [n for n, _ in last_node.neighbors]:
+                self.move_queue.append(target_node)
+                return True
+        return False
+    
+    def override_queue(self, target_node: Node):
+        """Replace queue (keeps current animation target).
+        
+        Args:
+            target_node: New target node
+        """
+        if self.animating and self.move_queue:
+            # Keep current animation target, replace rest
+            current_target = self.move_queue[0]
+            self.move_queue = [current_target]
+            if target_node in [n for n, _ in current_target.neighbors]:
+                self.move_queue.append(target_node)
+        else:
+            # Not animating, start fresh queue
+            self.move_queue = []
+            if target_node in [n for n, _ in self.node.neighbors]:
+                self.move_queue.append(target_node)
     
     def can_move_to(self, target_node: Node) -> bool:
         """Check if player can move to target node.
@@ -39,12 +103,15 @@ class PlayerEntity:
         Returns:
             True if target is an adjacent neighbor
         """
-        if self.is_moving:
-            return False
-        
+        # Can always click adjacent nodes (for queue system)
         for neighbor, _ in self.node.neighbors:
             if neighbor == target_node:
                 return True
+        
+        # Also check if clicking on queued nodes
+        if self.move_queue and target_node in self.move_queue:
+            return True
+            
         return False
     
     def start_move(self, target_node: Node, algorithm: str, current_time: int):
@@ -55,48 +122,75 @@ class PlayerEntity:
             algorithm: Current algorithm (affects animation speed)
             current_time: Current time in milliseconds
         """
-        self.is_moving = True
-        self.move_from = self.node
+        self.animating = True
+        self.animation_start_time = current_time
+        self.animation_from = self.visual_pos
+        self.animation_to = target_node.pos
+        
+        # Set move_to for update() to know target node
         self.move_to = target_node
-        self.move_start_time = current_time
         
         # Calculate animation duration based on algorithm
         if algorithm in ['BFS', 'DFS']:
-            self.move_duration = int(ANIMATION_BASE_SPEED * 1000)  # 0.5 seconds
+            self.animation_duration = int(ANIMATION_BASE_SPEED * 1000)  # 0.5 seconds
         elif algorithm == 'UCS':
-            weight = self.move_from.get_weight_to(target_node)
+            weight = self.node.get_weight_to(target_node)
             duration_seconds = 0.2 + (weight * 0.1)
-            self.move_duration = int(duration_seconds * 1000)
+            self.animation_duration = int(duration_seconds * 1000)
         elif 'Greedy' in algorithm:
             duration_seconds = 0.3 + (target_node.h_cost * 0.02)
-            self.move_duration = int(min(duration_seconds, 1.5) * 1000)
+            self.animation_duration = int(min(duration_seconds, 1.5) * 1000)
         elif 'A*' in algorithm:
             duration_seconds = 0.2 + (target_node.f_cost * 0.015)
-            self.move_duration = int(min(duration_seconds, 1.5) * 1000)
+            self.animation_duration = int(min(duration_seconds, 1.5) * 1000)
         else:
-            self.move_duration = int(ANIMATION_BASE_SPEED * 1000)
+            self.animation_duration = 400  # Default 400ms
     
-    def update(self, current_time: int) -> bool:
-        """Update player movement.
+    def update(self, current_time: int, dt: float = 0, algorithm: str = 'BFS') -> bool:
+        """Update player movement and animation.
         
         Args:
             current_time: Current time in milliseconds
+            dt: Delta time in seconds (unused, kept for compatibility)
+            algorithm: Algorithm name (for animation speed)
             
         Returns:
             True if move completed this frame
         """
-        if not self.is_moving:
-            return False
+        if self.animating:
+            # Update animation
+            elapsed = current_time - self.animation_start_time
+            progress = min(1.0, elapsed / self.animation_duration)
+            eased = self.ease_in_out_cubic(progress)
+            
+            # Interpolate position
+            self.visual_pos = (
+                self.animation_from[0] + (self.animation_to[0] - self.animation_from[0]) * eased,
+                self.animation_from[1] + (self.animation_to[1] - self.animation_from[1]) * eased
+            )
+            
+            if progress >= 1.0:
+                # Move complete
+                self.animating = False
+                self.visual_pos = self.move_to.pos
+                self.node = self.move_to
+                self.nodes_visited += 1
+                
+                # Remove completed move from queue
+                if self.move_queue and self.move_queue[0] == self.move_to:
+                    self.move_queue.pop(0)
+                
+                self.move_to = None
+                
+                # Start next move in queue
+                if self.move_queue:
+                    self.start_move(self.move_queue[0], algorithm, current_time)
+                
+                return True
         
-        elapsed = current_time - self.move_start_time
-        if elapsed >= self.move_duration:
-            # Move complete
-            self.node = self.move_to
-            self.nodes_visited += 1
-            self.is_moving = False
-            self.move_from = None
-            self.move_to = None
-            return True
+        elif self.move_queue:
+            # Not animating but have queued moves - start next one
+            self.start_move(self.move_queue[0], algorithm, current_time)
         
         return False
 
@@ -122,6 +216,14 @@ class EnemyAI:
         self.target_node = None
         self.stats = Stats()
         
+        # Animation properties
+        self.visual_pos = start_node.pos  # Rendered position
+        self.animating = False
+        self.animation_start_time = 0
+        self.animation_duration = 400  # milliseconds
+        self.animation_from = start_node.pos
+        self.animation_to = start_node.pos
+        
         # Track ALL visited nodes across all path calculations
         # This enforces algorithmic constraints:
         # - For BFS/DFS/UCS: Track visited leaf nodes
@@ -131,6 +233,30 @@ class EnemyAI:
         # Track visited leaf nodes for BFS/DFS/UCS
         # Once a leaf is visited, enemy cannot go there again
         self.visited_leaves: set[Node] = set()
+    
+    def ease_in_out_cubic(self, t: float) -> float:
+        """Smooth easing function for animations.
+        
+        Args:
+            t: Progress from 0.0 to 1.0
+            
+        Returns:
+            Eased progress value
+        """
+        return t * t * (3 - 2 * t)
+    
+    def start_animation(self, target_node: Node, current_time: int):
+        """Start animation to target node.
+        
+        Args:
+            target_node: Node to animate to
+            current_time: Current time in milliseconds
+        """
+        self.animating = True
+        self.animation_start_time = current_time
+        self.animation_from = self.visual_pos
+        self.animation_to = target_node.pos
+        self.node = target_node
     
     def recalculate_path(self, target_node: Node):
         """Recalculate path to target.
@@ -156,28 +282,46 @@ class EnemyAI:
         
         self.path_index = 0
     
-    def update(self, current_time: int, player_node: Node) -> bool:
-        """Update enemy AI.
+    def update(self, current_time: int, player_node: Node, dt: float = 0) -> bool:
+        """Update enemy AI and animation.
         
         Args:
             current_time: Current time in milliseconds
             player_node: Player's current position
+            dt: Delta time in seconds (unused, kept for compatibility)
             
         Returns:
             True if enemy moved this frame
         """
+        # Update animation if animating
+        if self.animating:
+            elapsed = current_time - self.animation_start_time
+            progress = min(1.0, elapsed / self.animation_duration)
+            eased = self.ease_in_out_cubic(progress)
+            
+            # Interpolate position
+            self.visual_pos = (
+                self.animation_from[0] + (self.animation_to[0] - self.animation_from[0]) * eased,
+                self.animation_from[1] + (self.animation_to[1] - self.animation_from[1]) * eased
+            )
+            
+            if progress >= 1.0:
+                self.animating = False
+                self.visual_pos = self.node.pos
+        
         # Recalculate if needed
         if player_node != self.target_node:
             self.recalculate_path(player_node)
         
-        # Check if we can move
-        if current_time - self.last_move_time < self.move_delay:
+        # Check if we can start a new move (not animating and enough time passed)
+        if self.animating or (current_time - self.last_move_time < self.move_delay):
             return False
         
         # Move along path
         if self.path and self.path_index < len(self.path) - 1:
             self.path_index += 1
-            self.node = self.path[self.path_index]
+            next_node = self.path[self.path_index]
+            self.start_animation(next_node, current_time)
             self.last_move_time = current_time
             return True
         
@@ -247,16 +391,16 @@ class GameSession:
         self.is_defeat = False
     
     def handle_click(self, pos: tuple[int, int], current_time: int) -> bool:
-        """Handle player click for movement.
+        """Handle player click for movement with queue system.
         
         Args:
             pos: Mouse click position
             current_time: Current time in milliseconds
             
         Returns:
-            True if player started moving
+            True if click was handled
         """
-        if self.paused or self.player.is_moving:
+        if self.paused:
             return False
         
         # Find clicked node
@@ -264,9 +408,15 @@ class GameSession:
         if not clicked_node:
             return False
         
-        # Check if it's a valid move
+        # Check if clicking same node - cancel queue
+        if clicked_node == self.player.node:
+            self.player.move_queue = []
+            return True
+        
+        # Check if it's a valid adjacent move
         if self.player.can_move_to(clicked_node):
-            self.player.start_move(clicked_node, self.algorithm, current_time)
+            # Override queue with new move
+            self.player.override_queue(clicked_node)
             return True
         
         return False
@@ -284,8 +434,8 @@ class GameSession:
         # Update game time
         self.game_time = int(time_module.time() - self.start_time)
         
-        # Update player
-        if self.player.update(current_time):
+        # Update player with algorithm parameter for queue system
+        if self.player.update(current_time, delta_time, self.algorithm):
             # Player finished moving, enemy recalculates
             self.enemy.recalculate_path(self.player.node)
         

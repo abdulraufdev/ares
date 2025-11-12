@@ -95,37 +95,25 @@ class GraphRenderer:
                     pygame.draw.rect(self.screen, self.theme['background'], bg_rect)
                     self.screen.blit(weight_text, weight_rect)
     
-    def draw_nodes(self, graph, player_node: Node, enemy_node: Node):
+    def draw_nodes(self, graph, player_entity, enemy_entity):
         """Draw all nodes in the graph.
         
         Args:
             graph: Graph object
-            player_node: Current player position
-            enemy_node: Current enemy position
+            player_entity: Player entity (has visual_pos)
+            enemy_entity: Enemy entity (has visual_pos)
         """
+        # Draw regular nodes first
         for node in graph.nodes:
+            # Skip player and enemy nodes (drawn later with glow)
+            if node == player_entity.node or node == enemy_entity.node:
+                continue
+            
             # Determine node color
-            if node == player_node:
-                color = self.theme['player']
-                draw_glow = True
-            elif node == enemy_node:
-                color = self.theme['enemy']
-                draw_glow = True
-            elif node.visited:
+            if node.visited:
                 color = self.theme['node_visited']
-                draw_glow = False
             else:
                 color = self.theme['node_default']
-                draw_glow = False
-            
-            # Draw glow effect for player/enemy
-            if draw_glow:
-                for i in range(3):
-                    radius = NODE_RADIUS + (3 - i) * 5
-                    alpha = 50 + i * 30
-                    glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surface, (*color, alpha), (radius, radius), radius)
-                    self.screen.blit(glow_surface, (node.pos[0] - radius, node.pos[1] - radius))
             
             # Draw node circle
             pygame.draw.circle(self.screen, color, node.pos, NODE_RADIUS)
@@ -135,23 +123,57 @@ class GraphRenderer:
             label_text = self.font.render(node.label, True, (0, 0, 0))
             label_rect = label_text.get_rect(center=node.pos)
             self.screen.blit(label_text, label_rect)
+        
+        # Draw player with glow at visual position
+        player_pos = tuple(int(p) for p in player_entity.visual_pos)
+        for i in range(3):
+            radius = NODE_RADIUS + (3 - i) * 5
+            alpha = 50 + i * 30
+            glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*self.theme['player'], alpha), (radius, radius), radius)
+            self.screen.blit(glow_surface, (player_pos[0] - radius, player_pos[1] - radius))
+        
+        pygame.draw.circle(self.screen, self.theme['player'], player_pos, NODE_RADIUS)
+        pygame.draw.circle(self.screen, self.theme['text'], player_pos, NODE_RADIUS, 2)
+        
+        # Draw player label at node position (not visual position)
+        label_text = self.font.render(player_entity.node.label, True, (0, 0, 0))
+        label_rect = label_text.get_rect(center=player_pos)
+        self.screen.blit(label_text, label_rect)
+        
+        # Draw enemy with glow at visual position
+        enemy_pos = tuple(int(p) for p in enemy_entity.visual_pos)
+        for i in range(3):
+            radius = NODE_RADIUS + (3 - i) * 5
+            alpha = 50 + i * 30
+            glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*self.theme['enemy'], alpha), (radius, radius), radius)
+            self.screen.blit(glow_surface, (enemy_pos[0] - radius, enemy_pos[1] - radius))
+        
+        pygame.draw.circle(self.screen, self.theme['enemy'], enemy_pos, NODE_RADIUS)
+        pygame.draw.circle(self.screen, self.theme['text'], enemy_pos, NODE_RADIUS, 2)
+        
+        # Draw enemy label at node position (not visual position)
+        label_text = self.font.render(enemy_entity.node.label, True, (0, 0, 0))
+        label_rect = label_text.get_rect(center=enemy_pos)
+        self.screen.blit(label_text, label_rect)
     
-    def draw_health_bars(self, player_node: Node, enemy_node: Node, 
+    def draw_health_bars(self, player_entity, enemy_entity, 
                         player_hp: float, enemy_hp: float):
         """Draw health bars above player and enemy.
         
         Args:
-            player_node: Player's current node
-            enemy_node: Enemy's current node
+            player_entity: Player entity (has visual_pos)
+            enemy_entity: Enemy entity (has visual_pos)
             player_hp: Player health percentage (0.0 to 1.0)
             enemy_hp: Enemy health percentage (0.0 to 1.0)
         """
         bar_width = 50
         bar_height = 6
         
-        def draw_bar(node, hp_percent, is_player):
-            x = node.pos[0] - bar_width / 2
-            y = node.pos[1] - NODE_RADIUS - 15
+        def draw_bar(visual_pos, hp_percent, is_player):
+            x = visual_pos[0] - bar_width / 2
+            y = visual_pos[1] - NODE_RADIUS - 15
             
             # Background
             pygame.draw.rect(self.screen, (60, 60, 60), (x, y, bar_width, bar_height))
@@ -164,8 +186,8 @@ class GraphRenderer:
             # Border
             pygame.draw.rect(self.screen, (200, 200, 200), (x, y, bar_width, bar_height), 1)
         
-        draw_bar(player_node, player_hp, True)
-        draw_bar(enemy_node, enemy_hp, False)
+        draw_bar(player_entity.visual_pos, player_hp, True)
+        draw_bar(enemy_entity.visual_pos, enemy_hp, False)
     
     def draw_ui_panel(self, stats: Stats, paused: bool, game_time: int):
         """Draw UI panel with game information.
@@ -432,3 +454,105 @@ class GraphRenderer:
             stat_text = self.ui_font.render(f"├─ {stat}", True, (180, 180, 180))
             self.screen.blit(stat_text, (x, y))
             y += 22
+    
+    def draw_dashed_line(self, screen, start: tuple[float, float], end: tuple[float, float], 
+                        color: tuple[int, int, int], width: int = 3):
+        """Draw a dashed line between two points.
+        
+        Args:
+            screen: Pygame surface to draw on
+            start: Start position (x, y)
+            end: End position (x, y)
+            color: Line color
+            width: Line width
+        """
+        import math
+        
+        # Calculate dash parameters
+        dash_length = 10
+        gap_length = 5
+        
+        # Calculate line vector
+        dx = end[0] - start[0]
+        dy = end[1] - start[1]
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance == 0:
+            return
+        
+        # Normalize direction
+        dir_x = dx / distance
+        dir_y = dy / distance
+        
+        # Draw dashes
+        current_distance = 0
+        while current_distance < distance:
+            # Start of dash
+            dash_start = (
+                start[0] + dir_x * current_distance,
+                start[1] + dir_y * current_distance
+            )
+            
+            # End of dash
+            dash_end_distance = min(current_distance + dash_length, distance)
+            dash_end = (
+                start[0] + dir_x * dash_end_distance,
+                start[1] + dir_y * dash_end_distance
+            )
+            
+            # Draw this dash
+            pygame.draw.line(screen, color, dash_start, dash_end, width)
+            
+            # Move to next dash
+            current_distance += dash_length + gap_length
+    
+    def draw_queued_path(self, screen, player):
+        """Draw dashed lines and numbers for queued moves.
+        
+        Args:
+            screen: Pygame surface to draw on
+            player: Player entity with move_queue
+        """
+        if not player.move_queue:
+            return
+        
+        # Colors for queue visualization
+        CYAN = (0, 255, 255)
+        BRIGHT_CYAN = (100, 255, 255)
+        LIGHT_CYAN = (150, 200, 255)
+        WHITE = (255, 255, 255)
+        
+        # Draw dashed lines between queued nodes
+        for i in range(len(player.move_queue)):
+            if i == 0:
+                # Line from current visual position to first queued node
+                start = player.visual_pos
+            else:
+                # Line from previous queued node to current
+                start = player.move_queue[i-1].pos
+            
+            end = player.move_queue[i].pos
+            self.draw_dashed_line(screen, start, end, CYAN, 3)
+        
+        # Draw highlights and numbers on queued nodes
+        try:
+            number_font = pygame.font.SysFont('Arial', 14, bold=True)
+        except:
+            number_font = self.font
+        
+        for i, node in enumerate(player.move_queue):
+            if i == 0:
+                # First queued node - bright cyan circle (current target)
+                pygame.draw.circle(screen, BRIGHT_CYAN, node.pos, NODE_RADIUS + 8, 4)
+            else:
+                # Subsequent queued nodes - lighter cyan circle with number
+                pygame.draw.circle(screen, LIGHT_CYAN, node.pos, NODE_RADIUS + 5, 2)
+                
+                # Draw number above node
+                label = number_font.render(str(i), True, WHITE)
+                label_rect = label.get_rect(center=(node.pos[0], node.pos[1] - NODE_RADIUS - 18))
+                # Draw background circle for number
+                bg_radius = 10
+                pygame.draw.circle(screen, (0, 0, 0, 180), label_rect.center, bg_radius)
+                pygame.draw.circle(screen, CYAN, label_rect.center, bg_radius, 2)
+                screen.blit(label, label_rect)

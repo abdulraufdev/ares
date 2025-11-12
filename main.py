@@ -163,14 +163,17 @@ def main():
             # Draw game world
             renderer.draw_background()
             renderer.draw_edges(game_session.graph, game_session.enemy.path)
-            renderer.draw_nodes(game_session.graph, game_session.player.node, game_session.enemy.node)
+            renderer.draw_nodes(game_session.graph, game_session.player, game_session.enemy)
+            
+            # Draw queued path visualization
+            renderer.draw_queued_path(screen, game_session.player)
             
             # Draw health bars
             player_hp = game_session.combat.player.get_health_percentage()
             enemy_hp = game_session.combat.enemy.get_health_percentage()
             renderer.draw_health_bars(
-                game_session.player.node,
-                game_session.enemy.node,
+                game_session.player,
+                game_session.enemy,
                 player_hp,
                 enemy_hp
             )
@@ -189,7 +192,7 @@ def main():
             # Draw final game state in background
             renderer.draw_background()
             renderer.draw_edges(game_session.graph, game_session.enemy.path)
-            renderer.draw_nodes(game_session.graph, game_session.player.node, game_session.enemy.node)
+            renderer.draw_nodes(game_session.graph, game_session.player, game_session.enemy)
             
             # Draw victory screen
             player_stats = game_session.get_player_stats()
@@ -205,7 +208,7 @@ def main():
             # Draw final game state in background
             renderer.draw_background()
             renderer.draw_edges(game_session.graph, game_session.enemy.path)
-            renderer.draw_nodes(game_session.graph, game_session.player.node, game_session.enemy.node)
+            renderer.draw_nodes(game_session.graph, game_session.player, game_session.enemy)
             
             # Draw defeat screen
             player_stats = game_session.get_player_stats()
