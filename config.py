@@ -84,11 +84,11 @@ THEMES = {
 
 # Enemy AI settings
 ENEMY_SPEEDS = {
-    'BFS': 600,     # milliseconds between moves
-    'DFS': 600,
-    'UCS': 500,
-    'Greedy': 400,  # Faster - rushes!
-    'A*': 500
+    'BFS': 800,     # milliseconds between moves
+    'DFS': 800,
+    'UCS': 700,
+    'Greedy': 600,  # Faster - rushes!
+    'A*': 700
 }
 
 # Animation settings

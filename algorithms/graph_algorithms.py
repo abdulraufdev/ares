@@ -20,6 +20,7 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
     
     if start_node == goal_node:
         stats.path_len = 1
+        stats.path_cost = 0.0
         return [start_node], stats
     
     # Reset all nodes
@@ -42,6 +43,14 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
                 node = node.parent
             path.reverse()
             stats.path_len = len(path)
+            
+            # Calculate path cost (sum of edge weights)
+            path_cost = 0.0
+            for i in range(len(path) - 1):
+                weight = path[i].get_weight_to(path[i + 1])
+                path_cost += weight
+            stats.path_cost = path_cost
+            
             return path, stats
         
         for neighbor, weight in current.neighbors:
@@ -68,6 +77,7 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
     
     if start_node == goal_node:
         stats.path_len = 1
+        stats.path_cost = 0.0
         return [start_node], stats
     
     # Reset all nodes
@@ -90,6 +100,14 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
                 node = node.parent
             path.reverse()
             stats.path_len = len(path)
+            
+            # Calculate path cost (sum of edge weights)
+            path_cost = 0.0
+            for i in range(len(path) - 1):
+                weight = path[i].get_weight_to(path[i + 1])
+                path_cost += weight
+            stats.path_cost = path_cost
+            
             return path, stats
         
         for neighbor, weight in current.neighbors:
@@ -116,6 +134,7 @@ def ucs_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node],
     
     if start_node == goal_node:
         stats.path_len = 1
+        stats.path_cost = 0.0
         return [start_node], stats
     
     # Reset all nodes
@@ -169,6 +188,7 @@ def greedy_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Nod
     
     if start_node == goal_node:
         stats.path_len = 1
+        stats.path_cost = 0.0
         return [start_node], stats
     
     # Reset all nodes
@@ -194,6 +214,14 @@ def greedy_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Nod
                 node = node.parent
             path.reverse()
             stats.path_len = len(path)
+            
+            # Calculate path cost (sum of edge weights)
+            path_cost = 0.0
+            for i in range(len(path) - 1):
+                weight = path[i].get_weight_to(path[i + 1])
+                path_cost += weight
+            stats.path_cost = path_cost
+            
             return path, stats
         
         for neighbor, weight in current.neighbors:
@@ -221,6 +249,7 @@ def astar_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node
     
     if start_node == goal_node:
         stats.path_len = 1
+        stats.path_cost = 0.0
         return [start_node], stats
     
     # Reset all nodes
