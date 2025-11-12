@@ -23,6 +23,9 @@ class Graph:
         random.seed(seed)
         self._generate_nodes(num_nodes)
         self._connect_nodes()
+        
+        # Assign RANDOM STATIC values to all nodes
+        self._assign_random_costs()
     
     def _generate_nodes(self, num_nodes: int):
         """Generate nodes with organic layout."""
@@ -210,6 +213,24 @@ class Graph:
                 if node != other_node:
                     # Store Euclidean distance as heuristic
                     node.heuristics[other_node] = node.distance_to(other_node)
+    
+    def _assign_random_costs(self):
+        """Assign random heuristic and path cost to each node (ONCE, NEVER changes).
+        
+        These static values are used for tooltip display and remain constant
+        throughout the game session. They are NOT used for pathfinding calculations.
+        """
+        for node in self.nodes:
+            # Random heuristic between 10 and 300
+            node.heuristic = random.uniform(10.0, 300.0)
+            
+            # Random path cost between 10 and 300
+            node.path_cost = random.uniform(10.0, 300.0)
+        
+        # Round to 1 decimal place for cleaner display
+        for node in self.nodes:
+            node.heuristic = round(node.heuristic, 1)
+            node.path_cost = round(node.path_cost, 1)
     
     def update_heuristics_to_target(self, target_node: Node):
         """Update all nodes' h_cost to reflect distance to target.

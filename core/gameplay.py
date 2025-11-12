@@ -380,8 +380,8 @@ class GameSession:
         self.enemy = EnemyAI(enemy_start, algorithm, self.graph)
         self.combat = CombatSystem()
         
-        # Initialize heuristics for tooltips (distance to player)
-        self.graph.update_heuristics_to_target(player_start)
+        # Graph already has random costs assigned at creation
+        # NO initialization or updates needed for tooltips
         
         # Track player's last node to detect movement
         self.player_last_node = player_start
@@ -445,10 +445,8 @@ class GameSession:
             # Player finished moving, enemy recalculates
             self.enemy.recalculate_path(self.player.node)
             
-            # Update heuristics if player moved to a new node
-            if self.player.node != self.player_last_node:
-                self.graph.update_heuristics_to_target(self.player.node)
-                self.player_last_node = self.player.node
+            # Static costs remain unchanged - no need to update
+            self.player_last_node = self.player.node
         
         # Update enemy
         self.enemy.update(current_time, self.player.node)
