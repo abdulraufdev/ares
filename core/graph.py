@@ -74,23 +74,30 @@ class Graph:
     def _connect_nodes(self):
         """Create edges between nodes for fully connected graph with strategic positions."""
         # Create strategic variety in node connectivity
-        # Some nodes will be dead-ends (1-2 neighbors) - safe zones for BFS/DFS
+        # Some nodes will be corner/edge nodes with fewer connections - safe zones for BFS/DFS
         # Some will have many neighbors (4-6) - junction points
         
-        # Designate 3-5 nodes as "safe zone" candidates (dead-ends)
+        # Designate 3-5 nodes as "safe zone" candidates (prefer corner nodes)
         num_safe_zones = random.randint(3, 5)
         safe_zone_indices = random.sample(range(len(self.nodes)), num_safe_zones)
         
         for idx, node in enumerate(self.nodes):
             # Find closest nodes that aren't already neighbors
             distances = []
-            for other in self.nodes:
+            for other_idx, other in enumerate(self.nodes):
                 if other == node:
                     continue
                 if any(n == other for n, _ in node.neighbors):
                     continue
+                    
+                # Avoid connecting TO safe zones unless necessary
+                if other_idx in safe_zone_indices and idx not in safe_zone_indices:
+                    # Only connect to safe zones if they're very close
+                    if node.distance_to(other) > 150:
+                        continue
+                        
                 dist = node.distance_to(other)
-                distances.append((dist, other))
+                distances.append((dist, other, other_idx))
             
             # Sort by distance and connect to closest
             distances.sort(key=lambda x: x[0])
@@ -108,11 +115,11 @@ class Graph:
             to_add = max(1, target_neighbors - current_neighbors)
             
             for i in range(min(to_add, len(distances))):
-                dist, neighbor = distances[i]
+                dist, neighbor, neighbor_idx = distances[i]
                 
-                # Strategic weight assignment for safe zones
-                if idx in safe_zone_indices:
-                    # High-cost paths to safe zones (for UCS/A* strategy)
+                # Strategic weight assignment
+                if idx in safe_zone_indices or neighbor_idx in safe_zone_indices:
+                    # High-cost paths to/from safe zones (for UCS/A* strategy)
                     weight = random.randint(7, 10)
                 else:
                     # Regular weights - mix of low and high
