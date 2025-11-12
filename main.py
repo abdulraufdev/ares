@@ -2,7 +2,7 @@
 import pygame
 import sys
 from config import *
-from core.menu import MainMenu, TutorialScreen, Button
+from core.menu import MainMenu, TutorialScreen, AlgorithmSelectionScreen, Button
 from core.gameplay import GameSession
 from core.graphics import GraphRenderer
 
@@ -25,6 +25,7 @@ def main():
     # UI components
     main_menu = MainMenu(WINDOW_WIDTH, WINDOW_HEIGHT)
     tutorial_screen = TutorialScreen(WINDOW_WIDTH, WINDOW_HEIGHT)
+    algorithm_selection_screen = AlgorithmSelectionScreen(WINDOW_WIDTH, WINDOW_HEIGHT)
     
     # End screen buttons
     button_width = 180
@@ -64,7 +65,14 @@ def main():
                     running = False
                 elif action == 'tutorial':
                     game_state = STATE_TUTORIAL
-                elif action == 'start' and algorithm:
+                elif action == 'start':
+                    game_state = STATE_ALGORITHM_SELECTION
+            
+            elif game_state == STATE_ALGORITHM_SELECTION:
+                action, algorithm = algorithm_selection_screen.handle_event(event)
+                if action == 'back':
+                    game_state = STATE_MENU
+                elif action == 'continue' and algorithm:
                     selected_algorithm = algorithm
                     game_session = GameSession(algorithm)
                     renderer = GraphRenderer(screen, algorithm)
@@ -144,6 +152,9 @@ def main():
         # Rendering
         if game_state == STATE_MENU:
             main_menu.draw(screen)
+        
+        elif game_state == STATE_ALGORITHM_SELECTION:
+            algorithm_selection_screen.draw(screen)
         
         elif game_state == STATE_TUTORIAL:
             tutorial_screen.draw(screen)

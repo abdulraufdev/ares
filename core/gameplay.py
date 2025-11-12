@@ -196,18 +196,40 @@ class GameSession:
         self.algorithm = algorithm
         self.graph = Graph(WINDOW_WIDTH, WINDOW_HEIGHT, NUM_NODES, GRAPH_SEED)
         
-        # Select random start positions (far apart)
-        nodes = self.graph.nodes[:]
+        # Random spawn positions using timestamp seed
         import random
+        import time as time_module_local
+        random.seed(int(time_module_local.time() * 1000))
+        
+        nodes = list(self.graph.nodes)
         random.shuffle(nodes)
         
-        player_start = nodes[0]
-        enemy_start = nodes[-1]
+        # Find valid spawns with minimum 400px distance
+        player_start = None
+        enemy_start = None
         
-        # Ensure they're far enough apart
-        while player_start.distance_to(enemy_start) < 300 and len(nodes) > 2:
-            enemy_start = nodes[-2]
-            nodes.pop()
+        for player_node in nodes:
+            for enemy_node in nodes:
+                if player_node != enemy_node:
+                    distance = player_node.distance_to(enemy_node)
+                    if distance >= 400:
+                        player_start = player_node
+                        enemy_start = enemy_node
+                        break
+            if player_start is not None:
+                break
+        
+        # Fallback if no 400px distance pair found (use furthest apart)
+        if player_start is None:
+            max_distance = 0
+            for i, p_node in enumerate(nodes):
+                for j, e_node in enumerate(nodes):
+                    if i != j:
+                        dist = p_node.distance_to(e_node)
+                        if dist > max_distance:
+                            max_distance = dist
+                            player_start = p_node
+                            enemy_start = e_node
         
         # Initialize entities
         self.player = PlayerEntity(player_start)

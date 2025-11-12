@@ -237,19 +237,34 @@ class GraphRenderer:
         if self.algorithm in ['BFS', 'DFS']:
             lines.append(f"Visited: {'Yes' if node.visited else 'No'}")
         
-        if self.algorithm in ['UCS', 'A*']:
+        # UCS shows path cost
+        if self.algorithm == 'UCS':
             if node.g_cost > 0 or node.visited:
                 lines.append(f"Path Cost: {node.g_cost:.1f}")
             else:
                 lines.append(f"Path Cost: Not explored")
         
-        if self.algorithm in ['Greedy', 'A*']:
+        # Greedy algorithms show heuristic AND path cost
+        if 'Greedy' in self.algorithm:
             if node.h_cost > 0:
                 lines.append(f"Heuristic: {node.h_cost:.1f}")
             else:
                 lines.append(f"Heuristic: Not calculated")
+            if node.g_cost > 0 or node.visited:
+                lines.append(f"Path Cost: {node.g_cost:.1f}")
+            else:
+                lines.append(f"Path Cost: Not explored")
         
-        if self.algorithm == 'A*':
+        # A* shows heuristic, path cost, and f(n)
+        if 'A*' in self.algorithm:
+            if node.h_cost > 0:
+                lines.append(f"Heuristic: {node.h_cost:.1f}")
+            else:
+                lines.append(f"Heuristic: Not calculated")
+            if node.g_cost > 0 or node.visited:
+                lines.append(f"Path Cost: {node.g_cost:.1f}")
+            else:
+                lines.append(f"Path Cost: Not explored")
             if node.f_cost > 0:
                 lines.append(f"f(n) = {node.f_cost:.1f}")
             else:
