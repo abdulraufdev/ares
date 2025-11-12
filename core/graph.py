@@ -211,6 +211,20 @@ class Graph:
                     # Store Euclidean distance as heuristic
                     node.heuristics[other_node] = node.distance_to(other_node)
     
+    def update_heuristics_to_target(self, target_node: Node):
+        """Update all nodes' h_cost to reflect distance to target.
+        
+        This is called when the player moves to update tooltip displays.
+        
+        Args:
+            target_node: The target node (usually player's current position)
+        """
+        for node in self.nodes:
+            if node == target_node:
+                node.h_cost = 0.0
+            else:
+                node.h_cost = node.distance_to(target_node)
+    
     def get_node_by_label(self, label: str) -> Node | None:
         """Find node by its label."""
         for node in self.nodes:

@@ -103,28 +103,24 @@ class GraphRenderer:
             player_entity: Player entity (has visual_pos)
             enemy_entity: Enemy entity (has visual_pos)
         """
-        # Draw regular nodes first
+        # Draw ALL nodes at their FIXED positions (never skip any node)
         for node in graph.nodes:
-            # Skip player and enemy nodes (drawn later with glow)
-            if node == player_entity.node or node == enemy_entity.node:
-                continue
-            
             # Determine node color
             if node.visited:
                 color = self.theme['node_visited']
             else:
                 color = self.theme['node_default']
             
-            # Draw node circle
+            # Draw node circle at FIXED position
             pygame.draw.circle(self.screen, color, node.pos, NODE_RADIUS)
             pygame.draw.circle(self.screen, self.theme['text'], node.pos, NODE_RADIUS, 2)
             
-            # Draw label
+            # Draw label at FIXED position
             label_text = self.font.render(node.label, True, (0, 0, 0))
             label_rect = label_text.get_rect(center=node.pos)
             self.screen.blit(label_text, label_rect)
         
-        # Draw player with glow at visual position
+        # Draw player with glow at visual position (OVER nodes)
         player_pos = tuple(int(p) for p in player_entity.visual_pos)
         for i in range(3):
             radius = NODE_RADIUS + (3 - i) * 5
@@ -136,12 +132,12 @@ class GraphRenderer:
         pygame.draw.circle(self.screen, self.theme['player'], player_pos, NODE_RADIUS)
         pygame.draw.circle(self.screen, self.theme['text'], player_pos, NODE_RADIUS, 2)
         
-        # Draw player label at node position (not visual position)
+        # Draw player label at visual position (animated position)
         label_text = self.font.render(player_entity.node.label, True, (0, 0, 0))
         label_rect = label_text.get_rect(center=player_pos)
         self.screen.blit(label_text, label_rect)
         
-        # Draw enemy with glow at visual position
+        # Draw enemy with glow at visual position (OVER nodes)
         enemy_pos = tuple(int(p) for p in enemy_entity.visual_pos)
         for i in range(3):
             radius = NODE_RADIUS + (3 - i) * 5
@@ -153,7 +149,7 @@ class GraphRenderer:
         pygame.draw.circle(self.screen, self.theme['enemy'], enemy_pos, NODE_RADIUS)
         pygame.draw.circle(self.screen, self.theme['text'], enemy_pos, NODE_RADIUS, 2)
         
-        # Draw enemy label at node position (not visual position)
+        # Draw enemy label at visual position (animated position)
         label_text = self.font.render(enemy_entity.node.label, True, (0, 0, 0))
         label_rect = label_text.get_rect(center=enemy_pos)
         self.screen.blit(label_text, label_rect)
@@ -197,8 +193,17 @@ class GraphRenderer:
             paused: Whether game is paused
             game_time: Elapsed game time in seconds
         """
-        # Panel background - made smaller since we removed stats
-        panel_rect = pygame.Rect(10, 10, 300, 80)
+        # Calculate text width dynamically for algorithm name
+        algo_text_str = f'Algorithm: {self.algorithm}'
+        algo_text = self.large_font.render(algo_text_str, True, self.theme['ui_accent'])
+        text_width = algo_text.get_width()
+        
+        # Panel width: text width + padding (at least 400px)
+        panel_width = max(400, text_width + 40)
+        panel_height = 80
+        
+        # Panel background
+        panel_rect = pygame.Rect(10, 10, panel_width, panel_height)
         panel_surface = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
         pygame.draw.rect(panel_surface, (*self.theme['background'], 200), panel_surface.get_rect(), 
                         border_radius=10)
@@ -208,7 +213,6 @@ class GraphRenderer:
         
         # Algorithm name
         y = 20
-        algo_text = self.large_font.render(f'Algorithm: {self.algorithm}', True, self.theme['ui_accent'])
         self.screen.blit(algo_text, (20, y))
         y += 30
         
@@ -255,42 +259,31 @@ class GraphRenderer:
         # Show neighbor count for all nodes
         lines.append(f"Neighbors: {len(node.neighbors)}")
         
-        # Add algorithm-specific information - show for all nodes, not just visited
+        # Add algorithm-specific information - ALWAYS show numeric values
         if self.algorithm in ['BFS', 'DFS']:
             lines.append(f"Visited: {'Yes' if node.visited else 'No'}")
         
-        # UCS shows path cost
+        # UCS shows path cost - ALWAYS show numeric value
         if self.algorithm == 'UCS':
-            if node.g_cost > 0 or node.visited:
-                lines.append(f"Path Cost: {node.g_cost:.1f}")
-            else:
-                lines.append(f"Path Cost: Not explored")
+            # Always show g_cost, even if 0
+            lines.append(f"Path Cost: {node.g_cost:.1f}")
         
-        # Greedy algorithms show heuristic AND path cost
+        # Greedy algorithms show heuristic AND path cost - ALWAYS show numeric values
         if 'Greedy' in self.algorithm:
-            if node.h_cost > 0:
-                lines.append(f"Heuristic: {node.h_cost:.1f}")
-            else:
-                lines.append(f"Heuristic: Not calculated")
-            if node.g_cost > 0 or node.visited:
-                lines.append(f"Path Cost: {node.g_cost:.1f}")
-            else:
-                lines.append(f"Path Cost: Not explored")
+            # h_cost is now always set via update_heuristics_to_target
+            lines.append(f"Heuristic: {node.h_cost:.1f}")
+            # Always show g_cost, even if 0
+            lines.append(f"Path Cost: {node.g_cost:.1f}")
         
-        # A* shows heuristic, path cost, and f(n)
+        # A* shows heuristic, path cost, and f(n) - ALWAYS show numeric values
         if 'A*' in self.algorithm:
-            if node.h_cost > 0:
-                lines.append(f"Heuristic: {node.h_cost:.1f}")
-            else:
-                lines.append(f"Heuristic: Not calculated")
-            if node.g_cost > 0 or node.visited:
-                lines.append(f"Path Cost: {node.g_cost:.1f}")
-            else:
-                lines.append(f"Path Cost: Not explored")
-            if node.f_cost > 0:
-                lines.append(f"f(n) = {node.f_cost:.1f}")
-            else:
-                lines.append(f"f(n) = Not calculated")
+            # h_cost is now always set via update_heuristics_to_target
+            lines.append(f"Heuristic: {node.h_cost:.1f}")
+            # Always show g_cost, even if 0
+            lines.append(f"Path Cost: {node.g_cost:.1f}")
+            # Calculate f_cost on the fly for display
+            f_cost = node.h_cost + node.g_cost
+            lines.append(f"f(n) = {f_cost:.1f}")
         
         # Render tooltip
         padding = TOOLTIP_PADDING
