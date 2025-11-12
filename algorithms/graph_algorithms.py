@@ -5,17 +5,20 @@ from core.node import Node
 from core.models import Stats
 
 
-def bfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
+def bfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None, 
+                  visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Breadth-First Search on graph.
     
-    BFS can revisit regular nodes but cannot revisit leaf nodes that were
-    already explored.
+    BFS explores level by level from current position. Once a leaf node is visited,
+    it cannot be revisited. visited_nodes tracks all nodes explored across ALL
+    path calculations for proper algorithmic behavior.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
         visited_leaves: Set of leaf nodes already visited (cannot revisit)
+        visited_nodes: Set of ALL nodes visited across recalculations
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
@@ -24,6 +27,9 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
     
     if visited_leaves is None:
         visited_leaves = set()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     # If goal is a visited leaf, no path possible
     if goal_node.is_leaf() and goal_node in visited_leaves:
@@ -41,9 +47,15 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
     start_node.visited = True
     start_node.parent = None
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while frontier:
         current = frontier.popleft()
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         # Track visited leaves
         if current.is_leaf() and current != start_node:
@@ -77,21 +89,25 @@ def bfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
                 neighbor.visited = True
                 neighbor.parent = current
                 frontier.append(neighbor)
+                current_search_visited.add(neighbor)
     
     return [], stats
 
 
-def dfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
+def dfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None,
+                  visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Depth-First Search on graph.
     
-    DFS can revisit regular nodes but cannot revisit leaf nodes that were
-    already explored.
+    DFS explores one branch completely before backtracking. Once a leaf node is visited,
+    it cannot be revisited. visited_nodes tracks all nodes explored across ALL
+    path calculations for proper algorithmic behavior.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
         visited_leaves: Set of leaf nodes already visited (cannot revisit)
+        visited_nodes: Set of ALL nodes visited across recalculations
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
@@ -100,6 +116,9 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
     
     if visited_leaves is None:
         visited_leaves = set()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     # If goal is a visited leaf, no path possible
     if goal_node.is_leaf() and goal_node in visited_leaves:
@@ -117,9 +136,15 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
     start_node.visited = True
     start_node.parent = None
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while stack:
         current = stack.pop()
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         # Track visited leaves
         if current.is_leaf() and current != start_node:
@@ -153,21 +178,25 @@ def dfs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
                 neighbor.visited = True
                 neighbor.parent = current
                 stack.append(neighbor)
+                current_search_visited.add(neighbor)
     
     return [], stats
 
 
-def ucs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
+def ucs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None,
+                  visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Uniform Cost Search on graph.
     
-    UCS can revisit regular nodes but cannot revisit leaf nodes that were
-    already explored.
+    UCS explores based on lowest cumulative cost. Once a leaf node is visited,
+    it cannot be revisited. visited_nodes tracks all nodes explored across ALL
+    path calculations for proper algorithmic behavior.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
         visited_leaves: Set of leaf nodes already visited (cannot revisit)
+        visited_nodes: Set of ALL nodes visited across recalculations
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
@@ -176,6 +205,9 @@ def ucs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
     
     if visited_leaves is None:
         visited_leaves = set()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     # If goal is a visited leaf, no path possible
     if goal_node.is_leaf() and goal_node in visited_leaves:
@@ -194,9 +226,15 @@ def ucs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
     start_node.parent = None
     start_node.visited = True
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while frontier:
         cost, _, current = heapq.heappop(frontier)
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         # Track visited leaves
         if current.is_leaf() and current != start_node:
@@ -226,6 +264,7 @@ def ucs_find_path(graph, start_node: Node, goal_node: Node, visited_leaves: set[
                 neighbor.g_cost = new_cost
                 neighbor.parent = current
                 heapq.heappush(frontier, (new_cost, id(neighbor), neighbor))
+                current_search_visited.add(neighbor)
     
     return [], stats
 
@@ -351,21 +390,27 @@ def astar_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node
     return [], stats
 
 
-def greedy_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def greedy_local_min_find_path(graph, start_node: Node, goal_node: Node, 
+                                visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Greedy Best-First Search (Local Minima variant).
     
     This variant seeks nodes with LOWER heuristic values (closer to goal).
-    Can get stuck in local minima. No backtracking allowed.
+    Can get stuck in local minima. NO BACKTRACKING - once a node is visited
+    across ANY path calculation, it CANNOT be revisited.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_nodes: Set of ALL nodes visited across recalculations (strict no backtracking)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -382,9 +427,15 @@ def greedy_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tupl
     start_node.visited = True
     start_node.parent = None
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while frontier:
         _, _, current = heapq.heappop(frontier)
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         if current == goal_node:
             # Reconstruct path
@@ -406,30 +457,41 @@ def greedy_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tupl
             return path, stats
         
         for neighbor, weight in current.neighbors:
+            # Strict no backtracking: skip if neighbor was visited in ANY previous search
+            if neighbor in visited_nodes:
+                continue
+            
             if not neighbor.visited:
                 neighbor.visited = True
                 neighbor.parent = current
                 neighbor.h_cost = neighbor.get_heuristic_to(goal_node)
                 heapq.heappush(frontier, (neighbor.h_cost, id(neighbor), neighbor))
+                current_search_visited.add(neighbor)
     
     return [], stats
 
 
-def greedy_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def greedy_local_max_find_path(graph, start_node: Node, goal_node: Node,
+                                visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using Greedy Best-First Search (Local Maxima variant).
     
     This variant seeks nodes with HIGHER heuristic values (farther from goal).
-    Can get stuck in local maxima. No backtracking allowed.
+    Can get stuck in local maxima. NO BACKTRACKING - once a node is visited
+    across ANY path calculation, it CANNOT be revisited.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_nodes: Set of ALL nodes visited across recalculations (strict no backtracking)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -447,9 +509,15 @@ def greedy_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tupl
     start_node.visited = True
     start_node.parent = None
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while frontier:
         _, _, current = heapq.heappop(frontier)
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         if current == goal_node:
             # Reconstruct path
@@ -471,31 +539,42 @@ def greedy_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tupl
             return path, stats
         
         for neighbor, weight in current.neighbors:
+            # Strict no backtracking: skip if neighbor was visited in ANY previous search
+            if neighbor in visited_nodes:
+                continue
+            
             if not neighbor.visited:
                 neighbor.visited = True
                 neighbor.parent = current
                 neighbor.h_cost = neighbor.get_heuristic_to(goal_node)
                 # Use negative heuristic to prefer higher values
                 heapq.heappush(frontier, (-neighbor.h_cost, id(neighbor), neighbor))
+                current_search_visited.add(neighbor)
     
     return [], stats
 
 
-def astar_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def astar_local_min_find_path(graph, start_node: Node, goal_node: Node,
+                               visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using A* Search (Local Minima variant).
     
     Uses f(n) = g(n) + h(n), seeking lower f-values.
-    Can get stuck in local minima. No backtracking allowed.
+    Can get stuck in local minima. NO BACKTRACKING - once a node is visited
+    across ANY path calculation, it CANNOT be revisited.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_nodes: Set of ALL nodes visited across recalculations (strict no backtracking)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -514,9 +593,15 @@ def astar_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tuple
     
     frontier = [(start_node.f_cost, id(start_node), start_node)]
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while frontier:
         _, _, current = heapq.heappop(frontier)
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         if current == goal_node:
             # Reconstruct path
@@ -533,6 +618,10 @@ def astar_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tuple
         for neighbor, weight in current.neighbors:
             new_g = current.g_cost + weight
             
+            # Strict no backtracking: skip if neighbor was visited in ANY previous search
+            if neighbor in visited_nodes:
+                continue
+            
             # No backtracking - only visit unvisited nodes
             if not neighbor.visited:
                 neighbor.visited = True
@@ -541,25 +630,32 @@ def astar_local_min_find_path(graph, start_node: Node, goal_node: Node) -> tuple
                 neighbor.f_cost = neighbor.g_cost + neighbor.h_cost
                 neighbor.parent = current
                 heapq.heappush(frontier, (neighbor.f_cost, id(neighbor), neighbor))
+                current_search_visited.add(neighbor)
     
     return [], stats
 
 
-def astar_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tuple[list[Node], Stats]:
+def astar_local_max_find_path(graph, start_node: Node, goal_node: Node,
+                               visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using A* Search (Local Maxima variant).
     
     Uses f(n) = g(n) + h(n), but inverts heuristic to seek higher h-values.
-    Can get stuck in local maxima. No backtracking allowed.
+    Can get stuck in local maxima. NO BACKTRACKING - once a node is visited
+    across ANY path calculation, it CANNOT be revisited.
     
     Args:
         graph: Graph object containing nodes
         start_node: Starting node
         goal_node: Target node
+        visited_nodes: Set of ALL nodes visited across recalculations (strict no backtracking)
         
     Returns:
         Tuple of (path, stats) where path is list of nodes
     """
     stats = Stats()
+    
+    if visited_nodes is None:
+        visited_nodes = set()
     
     if start_node == goal_node:
         stats.path_len = 1
@@ -583,9 +679,15 @@ def astar_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tuple
     
     frontier = [(start_node.f_cost, id(start_node), start_node)]
     
+    # Track nodes visited in THIS search
+    current_search_visited = set([start_node])
+    
     while frontier:
         _, _, current = heapq.heappop(frontier)
         stats.nodes_expanded += 1
+        
+        # Add to persistent visited_nodes set
+        visited_nodes.add(current)
         
         if current == goal_node:
             # Reconstruct path
@@ -602,6 +704,10 @@ def astar_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tuple
         for neighbor, weight in current.neighbors:
             new_g = current.g_cost + weight
             
+            # Strict no backtracking: skip if neighbor was visited in ANY previous search
+            if neighbor in visited_nodes:
+                continue
+            
             # No backtracking - only visit unvisited nodes
             if not neighbor.visited:
                 neighbor.visited = True
@@ -612,12 +718,14 @@ def astar_local_max_find_path(graph, start_node: Node, goal_node: Node) -> tuple
                 neighbor.f_cost = neighbor.g_cost + inverted_h
                 neighbor.parent = current
                 heapq.heappush(frontier, (neighbor.f_cost, id(neighbor), neighbor))
+                current_search_visited.add(neighbor)
     
     return [], stats
 
 
 # Algorithm dispatcher
-def find_path(algorithm: str, graph, start_node: Node, goal_node: Node, visited_leaves: set[Node] = None) -> tuple[list[Node], Stats]:
+def find_path(algorithm: str, graph, start_node: Node, goal_node: Node, 
+              visited_leaves: set[Node] = None, visited_nodes: set[Node] = None) -> tuple[list[Node], Stats]:
     """Find path using specified algorithm.
     
     Args:
@@ -626,28 +734,29 @@ def find_path(algorithm: str, graph, start_node: Node, goal_node: Node, visited_
         start_node: Starting node
         goal_node: Target node
         visited_leaves: Set of already-visited leaf nodes (for BFS/DFS/UCS)
+        visited_nodes: Set of ALL visited nodes across recalculations (for strict algorithmic enforcement)
         
     Returns:
         Tuple of (path, stats)
     """
     if algorithm == 'BFS':
-        return bfs_find_path(graph, start_node, goal_node, visited_leaves)
+        return bfs_find_path(graph, start_node, goal_node, visited_leaves, visited_nodes)
     elif algorithm == 'DFS':
-        return dfs_find_path(graph, start_node, goal_node, visited_leaves)
+        return dfs_find_path(graph, start_node, goal_node, visited_leaves, visited_nodes)
     elif algorithm == 'UCS':
-        return ucs_find_path(graph, start_node, goal_node, visited_leaves)
+        return ucs_find_path(graph, start_node, goal_node, visited_leaves, visited_nodes)
     elif algorithm == 'Greedy (Local Min)':
-        return greedy_local_min_find_path(graph, start_node, goal_node)
+        return greedy_local_min_find_path(graph, start_node, goal_node, visited_nodes)
     elif algorithm == 'Greedy (Local Max)':
-        return greedy_local_max_find_path(graph, start_node, goal_node)
+        return greedy_local_max_find_path(graph, start_node, goal_node, visited_nodes)
     elif algorithm == 'A* (Local Min)':
-        return astar_local_min_find_path(graph, start_node, goal_node)
+        return astar_local_min_find_path(graph, start_node, goal_node, visited_nodes)
     elif algorithm == 'A* (Local Max)':
-        return astar_local_max_find_path(graph, start_node, goal_node)
+        return astar_local_max_find_path(graph, start_node, goal_node, visited_nodes)
     # Legacy support for old names
     elif algorithm == 'Greedy':
-        return greedy_local_min_find_path(graph, start_node, goal_node)
+        return greedy_local_min_find_path(graph, start_node, goal_node, visited_nodes)
     elif algorithm == 'A*':
-        return astar_local_min_find_path(graph, start_node, goal_node)
+        return astar_local_min_find_path(graph, start_node, goal_node, visited_nodes)
     else:
         return [], Stats()

@@ -24,6 +24,7 @@ class Button:
         self.active_color = UI_BUTTON_ACTIVE
         self.is_hovered = False
         self.is_pressed = False
+        self.hover_scale = 1.0  # For smooth animations
     
     def handle_event(self, event) -> bool:
         """Handle mouse events.
@@ -33,6 +34,11 @@ class Button:
         """
         if event.type == pygame.MOUSEMOTION:
             self.is_hovered = self.rect.collidepoint(event.pos)
+            # Smooth scale animation on hover
+            if self.is_hovered:
+                self.hover_scale = min(1.05, self.hover_scale + 0.05)
+            else:
+                self.hover_scale = max(1.0, self.hover_scale - 0.05)
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 self.is_pressed = True
@@ -45,7 +51,7 @@ class Button:
         return False
     
     def draw(self, screen, font):
-        """Draw the button."""
+        """Draw the button with modern effects."""
         # Choose color based on state
         color = self.bg_color
         if self.is_pressed:
@@ -53,9 +59,30 @@ class Button:
         elif self.is_hovered:
             color = self.hover_color
         
-        # Draw rounded rectangle
-        pygame.draw.rect(screen, color, self.rect, border_radius=UI_BUTTON_RADIUS)
-        pygame.draw.rect(screen, UI_BUTTON_TEXT, self.rect, 2, border_radius=UI_BUTTON_RADIUS)
+        # Draw shadow effect
+        shadow_rect = self.rect.copy()
+        shadow_rect.y += 3
+        pygame.draw.rect(screen, (0, 0, 0, 50), shadow_rect, border_radius=15)
+        
+        # Draw rounded rectangle with gradient effect
+        # Create a slightly lighter color for gradient
+        light_color = tuple(min(255, c + 20) for c in color)
+        
+        # Main button
+        pygame.draw.rect(screen, color, self.rect, border_radius=15)
+        
+        # Highlight at top for 3D effect
+        highlight_rect = pygame.Rect(self.rect.x, self.rect.y, self.rect.width, self.rect.height // 3)
+        pygame.draw.rect(screen, light_color, highlight_rect, border_radius=15)
+        
+        # Border
+        border_color = (200, 220, 255) if self.is_hovered else UI_BUTTON_TEXT
+        pygame.draw.rect(screen, border_color, self.rect, 2, border_radius=15)
+        
+        # Glow effect on hover
+        if self.is_hovered:
+            glow_rect = self.rect.inflate(4, 4)
+            pygame.draw.rect(screen, (100, 150, 255, 128), glow_rect, 3, border_radius=15)
         
         # Draw text centered
         text_surface = font.render(self.text, True, UI_BUTTON_TEXT)
@@ -79,11 +106,11 @@ class RadioButton:
         self.text = text
         self.description = description
         self.selected = False
-        self.circle_radius = 10
+        self.circle_radius = 15  # Larger circles
         self.hover = False
         
         # Clickable area
-        self.rect = pygame.Rect(x - 15, y - 15, 400, 30)
+        self.rect = pygame.Rect(x - 20, y - 20, 500, 40)
     
     def handle_event(self, event) -> bool:
         """Handle mouse events.
@@ -101,17 +128,17 @@ class RadioButton:
     
     def draw(self, screen, font, color):
         """Draw the radio button."""
-        # Outer circle
-        circle_color = color if self.hover else (150, 150, 150)
-        pygame.draw.circle(screen, circle_color, (self.x, self.y), self.circle_radius, 2)
+        # Outer circle with smooth transitions
+        circle_color = color if self.hover or self.selected else (150, 150, 150)
+        pygame.draw.circle(screen, circle_color, (self.x, self.y), self.circle_radius, 3)
         
         # Inner circle if selected
         if self.selected:
-            pygame.draw.circle(screen, color, (self.x, self.y), self.circle_radius - 4)
+            pygame.draw.circle(screen, color, (self.x, self.y), self.circle_radius - 6)
         
-        # Text
-        text_surface = font.render(f"{self.text} - {self.description}", True, (220, 220, 220))
-        screen.blit(text_surface, (self.x + 20, self.y - 10))
+        # Text with larger font
+        text_surface = font.render(f"{self.text} - {self.description}", True, (230, 230, 230))
+        screen.blit(text_surface, (self.x + 25, self.y - 12))
 
 
 class MainMenu:
@@ -130,18 +157,19 @@ class MainMenu:
         
         # Fonts - using modern Segoe UI / fallback to Arial
         try:
-            self.title_font = pygame.font.SysFont('Segoe UI', 42, bold=True)
-            self.font = pygame.font.SysFont('Segoe UI', 18)
-            self.small_font = pygame.font.SysFont('Segoe UI', 15)
+            self.title_font = pygame.font.SysFont('Segoe UI', 48, bold=True)
+            self.font = pygame.font.SysFont('Segoe UI', 20, bold=True)
+            self.algo_font = pygame.font.SysFont('Segoe UI', 18)
         except:
-            self.title_font = pygame.font.SysFont('Arial', 42, bold=True)
-            self.font = pygame.font.SysFont('Arial', 18)
-            self.small_font = pygame.font.SysFont('Arial', 15)
+            self.title_font = pygame.font.SysFont('Arial', 48, bold=True)
+            self.font = pygame.font.SysFont('Arial', 20, bold=True)
+            self.algo_font = pygame.font.SysFont('Arial', 18)
         
         # Algorithm radio buttons with improved spacing
+        # Title at 80px, Tutorial button at 160px, Label at 240px, Radio buttons start at 280px
         center_x = screen_width // 2 - 100
-        start_y = 200
-        spacing = 50
+        start_y = 280
+        spacing = 60
         
         self.radio_buttons = [
             RadioButton(center_x, start_y, 'BFS', 'Breadth First Search'),
@@ -154,20 +182,20 @@ class MainMenu:
         ]
         
         # Buttons with improved spacing
-        button_width = 220  # Slightly wider
-        button_height = 55  # Slightly taller
+        button_width = 240
+        button_height = 60
         button_x = screen_width // 2 - button_width // 2
         
         self.tutorial_button = Button(
-            button_x, 100, button_width, button_height, 'TUTORIAL'
+            button_x, 160, button_width, button_height, 'TUTORIAL'
         )
         
         self.start_button = Button(
-            button_x, 570, button_width, button_height, 'START GAME'
+            button_x, 700, button_width, button_height, 'START GAME'
         )
         
         self.quit_button = Button(
-            button_x, 650, button_width, button_height, 'QUIT'
+            button_x, 770, button_width, button_height, 'QUIT'
         )
     
     def handle_event(self, event) -> tuple[str, str | None]:
@@ -202,42 +230,54 @@ class MainMenu:
     
     def draw(self, screen):
         """Draw the main menu."""
-        screen.fill((20, 20, 30))
+        # Modern gradient background (dark blue to purple)
+        for y in range(self.screen_height):
+            # Gradient from dark blue (15, 25, 45) to dark purple (35, 15, 55)
+            ratio = y / self.screen_height
+            r = int(15 + (35 - 15) * ratio)
+            g = int(25 + (15 - 25) * ratio)
+            b = int(45 + (55 - 45) * ratio)
+            pygame.draw.line(screen, (r, g, b), (0, y), (self.screen_width, y))
         
-        # Title
+        # Title at 80px from top with glow effect
         title = self.title_font.render('ALGORITHM ARENA', True, (255, 255, 255))
-        title_rect = title.get_rect(center=(self.screen_width // 2, 60))
+        title_rect = title.get_rect(center=(self.screen_width // 2, 80))
+        
+        # Glow effect for title
+        glow = self.title_font.render('ALGORITHM ARENA', True, (100, 150, 255))
+        glow_rect = glow.get_rect(center=(self.screen_width // 2 + 2, 82))
+        screen.blit(glow, glow_rect)
         screen.blit(title, title_rect)
         
-        # Tutorial button
+        # Tutorial button at 160px
         self.tutorial_button.draw(screen, self.font)
         
-        # Selection label with increased spacing
-        label = self.font.render('SELECT ALGORITHM:', True, (200, 200, 200))
-        screen.blit(label, (self.screen_width // 2 - 100, 170))
+        # Selection label at 240px
+        label = self.font.render('SELECT ALGORITHM:', True, (220, 220, 255))
+        screen.blit(label, (self.screen_width // 2 - 100, 240))
         
-        # Radio buttons
+        # Radio buttons starting at 280px
         for radio in self.radio_buttons:
             # Use algorithm color if available
             color = (150, 150, 200)
             if radio.text in THEMES:
                 color = THEMES[radio.text]['ui_accent']
-            radio.draw(screen, self.small_font, color)
+            radio.draw(screen, self.algo_font, color)
         
-        # Start button (grayed out if no selection)
+        # Start button at 700px (grayed out if no selection)
         if not self.selected_algorithm:
             # Draw grayed out button
             pygame.draw.rect(screen, (60, 60, 60), self.start_button.rect, 
-                           border_radius=UI_BUTTON_RADIUS)
-            pygame.draw.rect(screen, (100, 100, 100), self.start_button.rect, 2,
-                           border_radius=UI_BUTTON_RADIUS)
+                           border_radius=15)
+            pygame.draw.rect(screen, (100, 100, 100), self.start_button.rect, 3,
+                           border_radius=15)
             text = self.font.render('START GAME', True, (120, 120, 120))
             text_rect = text.get_rect(center=self.start_button.rect.center)
             screen.blit(text, text_rect)
         else:
             self.start_button.draw(screen, self.font)
         
-        # Quit button
+        # Quit button at 770px
         self.quit_button.draw(screen, self.font)
 
 
