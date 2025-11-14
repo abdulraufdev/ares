@@ -344,6 +344,17 @@ class EnemyAI:
                 valid_neighbors = unvisited_neighbors
             else:
                 # All neighbors are visited or are visited leaves
+                # Check if there are ANY unvisited nodes left in the entire graph
+                any_unvisited = any(not node.visited for node in self.graph.nodes)
+                
+                if not any_unvisited:
+                    # Entire graph has been explored - no unvisited nodes left anywhere
+                    # Player wins because enemy explored everything but couldn't find player
+                    self.stuck = True
+                    self.stuck_reason = "graph_explored"
+                    return None
+                
+                # There are still unvisited nodes somewhere, allow backtracking to reach them
                 # Allow backtracking to visited non-leaf nodes only
                 valid_neighbors = [n for n, _ in self.node.neighbors 
                                  if not (n.is_leaf() and n in self.visited_leaves)]
