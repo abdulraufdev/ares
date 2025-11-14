@@ -196,24 +196,21 @@ class PlayerEntity:
 
 
 class EnemyAI:
-    """Enemy AI with pathfinding."""
+    """Enemy AI with pure greedy movement (no pathfinding/lookahead)."""
     
     def __init__(self, start_node: Node, algorithm: str, graph):
         """Initialize enemy AI.
         
         Args:
             start_node: Starting node
-            algorithm: Pathfinding algorithm to use
+            algorithm: Algorithm to use for movement decisions
             graph: Game graph
         """
         self.node = start_node
         self.algorithm = algorithm
         self.graph = graph
-        self.path = []
-        self.path_index = 0
         self.last_move_time = 0
         self.move_delay = ENEMY_SPEEDS.get(algorithm, 500)
-        self.target_node = None
         self.stats = Stats()
         
         # Animation properties
@@ -224,14 +221,16 @@ class EnemyAI:
         self.animation_from = start_node.pos
         self.animation_to = start_node.pos
         
-        # Track ALL visited nodes across all path calculations
-        # This enforces algorithmic constraints:
-        # - For BFS/DFS/UCS: Track visited leaf nodes
-        # - For Greedy/A*: Track ALL nodes (no backtracking)
+        # Track visited nodes (for no-backtracking enforcement)
         self.visited_nodes: set[Node] = set()
         
-        # Track visited leaf nodes for BFS/DFS/UCS
-        # Once a leaf is visited, enemy cannot go there again
+        # Track if enemy is stuck (no valid moves)
+        self.stuck = False
+        
+        # Legacy compatibility (for old code that checks these)
+        self.path = []
+        self.path_index = 0
+        self.target_node = None
         self.visited_leaves: set[Node] = set()
     
     def ease_in_out_cubic(self, t: float) -> float:
@@ -258,29 +257,75 @@ class EnemyAI:
         self.animation_to = target_node.pos
         self.node = target_node
     
-    def recalculate_path(self, target_node: Node):
-        """Recalculate path to target.
+    def get_next_move(self, player_node: Node) -> Node | None:
+        """Get next move based PURELY on algorithm rules - NO pathfinding/lookahead.
         
         Args:
-            target_node: New target position
+            player_node: Player's current position
+            
+        Returns:
+            Next node to move to, or None if stuck
         """
-        if target_node == self.target_node and self.path:
-            return  # Target hasn't changed
+        if self.stuck:
+            return None  # Enemy is stuck, player wins!
         
-        self.target_node = target_node
+        # Get all unvisited neighbors
+        unvisited_neighbors = [n for n, _ in self.node.neighbors 
+                               if n not in self.visited_nodes]
         
-        # Find path using algorithm with persistent visited node tracking
-        # BFS/DFS/UCS: Pass both visited_leaves and visited_nodes
-        # Greedy/A*: Pass visited_nodes for strict no-backtracking enforcement
-        if self.algorithm in ['BFS', 'DFS', 'UCS']:
-            self.path, self.stats = find_path(self.algorithm, self.graph, self.node, 
-                                             target_node, self.visited_leaves, self.visited_nodes)
+        # If no unvisited neighbors, enemy is STUCK
+        if not unvisited_neighbors:
+            self.stuck = True
+            return None  # Player wins!
+        
+        # Apply PURE algorithm rules (no lookahead/planning)
+        if self.algorithm == "Greedy (Local Min)":
+            # Pick neighbor with LOWEST heuristic (greedy, no planning)
+            next_node = min(unvisited_neighbors, key=lambda n: n.heuristic)
+        
+        elif self.algorithm == "Greedy (Local Max)":
+            # Pick neighbor with HIGHEST heuristic (greedy, no planning)
+            next_node = max(unvisited_neighbors, key=lambda n: n.heuristic)
+        
+        elif self.algorithm == "UCS":
+            # Pick neighbor with LOWEST path cost (greedy, no planning)
+            next_node = min(unvisited_neighbors, key=lambda n: n.path_cost)
+        
+        elif self.algorithm == "A* (Local Min)":
+            # Pick neighbor with LOWEST f-cost (h + g)
+            next_node = min(unvisited_neighbors, 
+                           key=lambda n: n.heuristic + n.path_cost)
+        
+        elif self.algorithm == "A* (Local Max)":
+            # Pick neighbor with HIGHEST f-cost (h + g)
+            next_node = max(unvisited_neighbors, 
+                           key=lambda n: n.heuristic + n.path_cost)
+        
+        elif self.algorithm == "BFS":
+            # BFS: Pick first unvisited neighbor (queue-like behavior)
+            next_node = unvisited_neighbors[0]
+        
+        elif self.algorithm == "DFS":
+            # DFS: Pick last unvisited neighbor (stack-like behavior)
+            next_node = unvisited_neighbors[-1]
+        
         else:
-            # Greedy and A* variants use visited_nodes (no backtracking)
-            self.path, self.stats = find_path(self.algorithm, self.graph, self.node, 
-                                             target_node, None, self.visited_nodes)
+            # Default: pick first neighbor
+            next_node = unvisited_neighbors[0]
         
-        self.path_index = 0
+        return next_node
+    
+    def recalculate_path(self, target_node: Node):
+        """Legacy compatibility method - no-op for pure greedy movement.
+        
+        In the new implementation, enemy doesn't calculate paths ahead of time.
+        This method exists for backwards compatibility with tests.
+        
+        Args:
+            target_node: Target node (ignored)
+        """
+        # No-op: pure greedy movement doesn't pre-calculate paths
+        pass
     
     def update(self, current_time: int, player_node: Node, dt: float = 0) -> bool:
         """Update enemy AI and animation.
@@ -308,24 +353,28 @@ class EnemyAI:
             if progress >= 1.0:
                 self.animating = False
                 self.visual_pos = self.node.pos
-        
-        # Recalculate if needed
-        if player_node != self.target_node:
-            self.recalculate_path(player_node)
+                # Mark current node as visited AFTER animation completes
+                self.visited_nodes.add(self.node)
         
         # Check if we can start a new move (not animating and enough time passed)
         if self.animating or (current_time - self.last_move_time < self.move_delay):
             return False
         
-        # Move along path
-        if self.path and self.path_index < len(self.path) - 1:
-            self.path_index += 1
-            next_node = self.path[self.path_index]
-            self.start_animation(next_node, current_time)
-            self.last_move_time = current_time
-            return True
+        # Get next move using pure greedy logic (no pathfinding)
+        next_node = self.get_next_move(player_node)
         
-        return False
+        if next_node is None:
+            # Enemy is stuck - no more moves possible
+            return False
+        
+        # Start animation to next node
+        self.start_animation(next_node, current_time)
+        self.last_move_time = current_time
+        
+        # Update legacy path for compatibility (for display purposes)
+        self.path = [self.node]
+        
+        return True
 
 
 class GameSession:
@@ -380,14 +429,15 @@ class GameSession:
         self.enemy = EnemyAI(enemy_start, algorithm, self.graph)
         self.combat = CombatSystem()
         
+        # Initialize h_cost for all nodes (for tooltip display)
+        # Set h_cost based on distance to player's starting position
+        self.graph.update_heuristics_to_target(player_start)
+        
         # Graph already has random costs assigned at creation
         # NO initialization or updates needed for tooltips
         
         # Track player's last node to detect movement
         self.player_last_node = player_start
-        
-        # Calculate initial path
-        self.enemy.recalculate_path(self.player.node)
         
         # Game state
         self.paused = False
@@ -395,6 +445,7 @@ class GameSession:
         self.game_time = 0
         self.is_victory = False
         self.is_defeat = False
+        self.victory_reason = ""  # Track reason for victory
     
     def handle_click(self, pos: tuple[int, int], current_time: int) -> bool:
         """Handle player click for movement with queue system.
@@ -442,14 +493,17 @@ class GameSession:
         
         # Update player with algorithm parameter for queue system
         if self.player.update(current_time, delta_time, self.algorithm):
-            # Player finished moving, enemy recalculates
-            self.enemy.recalculate_path(self.player.node)
-            
+            # Player finished moving
             # Static costs remain unchanged - no need to update
             self.player_last_node = self.player.node
         
         # Update enemy
         self.enemy.update(current_time, self.player.node)
+        
+        # Check if enemy is stuck (victory condition)
+        if self.enemy.stuck and not self.is_victory:
+            self.is_victory = True
+            self.victory_reason = "enemy_stuck"
         
         # Check combat
         self.combat.check_contact(self.player.node, self.enemy.node, current_time)
@@ -459,12 +513,10 @@ class GameSession:
         if is_over:
             if reason == 'victory':
                 self.is_victory = True
+                if not self.victory_reason:
+                    self.victory_reason = "combat"
             else:
                 self.is_defeat = True
-        
-        # Also check if enemy has no path (victory condition)
-        if not self.enemy.path and not self.is_victory:
-            self.is_victory = True
     
     def toggle_pause(self):
         """Toggle pause state."""

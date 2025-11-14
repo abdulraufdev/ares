@@ -343,17 +343,23 @@ class TestGameplay:
         assert len(enemy.path) == 0
     
     def test_enemy_recalculates_path(self):
-        """Test enemy path recalculation."""
+        """Test enemy movement decision (pure greedy, no pathfinding)."""
         graph = Graph(WINDOW_WIDTH, WINDOW_HEIGHT, 20, seed=42)
         enemy_start = graph.nodes[0]
         player_pos = graph.nodes[-1]
         
         enemy = EnemyAI(enemy_start, 'BFS', graph)
-        enemy.recalculate_path(player_pos)
         
-        assert len(enemy.path) > 0
-        assert enemy.path[0] == enemy_start
-        assert enemy.path[-1] == player_pos
+        # In new implementation, enemy doesn't calculate full paths
+        # Instead, it picks next move based on algorithm rules
+        next_move = enemy.get_next_move(player_pos)
+        
+        # Should return a valid neighbor
+        assert next_move is not None
+        assert next_move in [n for n, _ in enemy_start.neighbors]
+        
+        # recalculate_path should be a no-op but still callable
+        enemy.recalculate_path(player_pos)  # Should not raise error
     
     def test_game_session_creation(self):
         """Test game session initialization."""
