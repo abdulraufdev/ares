@@ -227,8 +227,16 @@ class EnemyAI:
         # Track visited leaves (for BFS/DFS/UCS - cannot revisit)
         self.visited_leaves: set[Node] = set()
         
+        # CRITICAL FIX: Mark starting node as visited immediately for BFS/DFS/UCS
+        if algorithm in ['BFS', 'DFS', 'UCS']:
+            start_node.visited = True
+        
         # Track if enemy is stuck (no valid moves)
         self.stuck = False
+        
+        # CRITICAL FIX: Track reason why enemy got stuck
+        # Possible values: "local_min", "local_max", "dead_end", "graph_explored"
+        self.stuck_reason = ""
         
         # Track if enemy has caught the player (at same node)
         self.caught_player = False
@@ -326,15 +334,26 @@ class EnemyAI:
         
         # Get valid neighbors based on algorithm type
         if self.algorithm in ['BFS', 'DFS', 'UCS']:
-            # BFS/DFS/UCS: Can backtrack (revisit nodes) but NOT visited leaves
-            valid_neighbors = [n for n, _ in self.node.neighbors 
-                             if not (n.is_leaf() and n in self.visited_leaves)]
+            # BFS/DFS/UCS: Prioritize unvisited nodes, but allow backtracking when stuck
+            # First, try to find truly unvisited neighbors (not visited AND not in visited_leaves)
+            unvisited_neighbors = [n for n, _ in self.node.neighbors 
+                                 if not n.visited and not (n.is_leaf() and n in self.visited_leaves)]
+            
+            if unvisited_neighbors:
+                # We have unvisited neighbors - use them (prevents infinite loop)
+                valid_neighbors = unvisited_neighbors
+            else:
+                # All neighbors are visited or are visited leaves
+                # Allow backtracking to visited non-leaf nodes only
+                valid_neighbors = [n for n, _ in self.node.neighbors 
+                                 if not (n.is_leaf() and n in self.visited_leaves)]
             
             # If no valid neighbors, check if entire graph has been explored
             if not valid_neighbors:
                 # For BFS/DFS/UCS, being stuck means completing traversal
                 # Player wins only if they were never found
                 self.stuck = True
+                self.stuck_reason = "graph_explored"
                 return None
         else:
             # Greedy/A*: NO backtracking - cannot revisit ANY visited node
@@ -344,6 +363,7 @@ class EnemyAI:
             # If no valid neighbors, enemy is STUCK (plateau/ridge/dead-end)
             if not valid_neighbors:
                 self.stuck = True
+                self.stuck_reason = "dead_end"
                 return None  # Player wins!
         
         # PLATEAU/RIDGE DETECTION for Greedy/A*: Check if stuck at local min/max
@@ -354,6 +374,7 @@ class EnemyAI:
             if min_neighbor_h > self.node.heuristic:
                 # All neighbors have greater values - stuck at local minimum!
                 self.stuck = True
+                self.stuck_reason = "local_min"
                 return None
             # Pick neighbor with LOWEST heuristic (greedy, no planning)
             next_node = min(valid_neighbors, key=lambda n: n.heuristic)
@@ -364,6 +385,7 @@ class EnemyAI:
             if max_neighbor_h < self.node.heuristic:
                 # All neighbors have smaller values - stuck at local maximum!
                 self.stuck = True
+                self.stuck_reason = "local_max"
                 return None
             # Pick neighbor with HIGHEST heuristic (greedy, no planning)
             next_node = max(valid_neighbors, key=lambda n: n.heuristic)
@@ -379,6 +401,7 @@ class EnemyAI:
             if min_neighbor_f > current_f:
                 # All neighbors have greater f-costs - stuck at local minimum!
                 self.stuck = True
+                self.stuck_reason = "local_min"
                 return None
             # Pick neighbor with LOWEST f-cost (h + g)
             next_node = min(valid_neighbors, 
@@ -391,6 +414,7 @@ class EnemyAI:
             if max_neighbor_f < current_f:
                 # All neighbors have smaller f-costs - stuck at local maximum!
                 self.stuck = True
+                self.stuck_reason = "local_max"
                 return None
             # Pick neighbor with HIGHEST f-cost (h + g)
             next_node = max(valid_neighbors, 
@@ -452,15 +476,18 @@ class EnemyAI:
                 self.visual_pos = self.node.pos
                 
                 # Mark current node as visited AFTER animation completes
+                # CRITICAL FIX: Update node.visited boolean immediately for BFS/DFS/UCS
+                if self.algorithm in ['BFS', 'DFS', 'UCS']:
+                    # Set the visited boolean on the node itself (for tooltip display)
+                    self.node.visited = True
+                    # Track visited leaves (cannot revisit these)
+                    if self.node.is_leaf():
+                        self.visited_leaves.add(self.node)
+                
                 # For Greedy/A*: mark all visited nodes
                 if self.algorithm in ['Greedy (Local Min)', 'Greedy (Local Max)', 
                                      'A* (Local Min)', 'A* (Local Max)']:
                     self.visited_nodes.add(self.node)
-                
-                # For BFS/DFS/UCS: mark visited leaves only
-                if self.algorithm in ['BFS', 'DFS', 'UCS']:
-                    if self.node.is_leaf():
-                        self.visited_leaves.add(self.node)
         
         # If caught player and player hasn't moved, stay put
         if self.caught_player and self.node == player_node:
@@ -618,7 +645,8 @@ class GameSession:
         # Check if enemy is stuck (victory condition)
         if self.enemy.stuck and not self.is_victory:
             self.is_victory = True
-            self.victory_reason = "enemy_stuck"
+            # CRITICAL FIX: Use enemy's stuck_reason for accurate victory message
+            self.victory_reason = self.enemy.stuck_reason if self.enemy.stuck_reason else "enemy_stuck"
         
         # Check combat
         self.combat.check_contact(self.player.node, self.enemy.node, current_time)
