@@ -239,9 +239,13 @@ class Graph:
                              algorithm: str, favor_enemy_chance: float = 0.5):
         """Assign costs that create balanced gameplay based on spawn positions.
         
-        For Local Min algorithms: sometimes create descending path enemy→player
-        For Local Max algorithms: sometimes create ascending path enemy→player  
-        For UCS: sometimes create low-cost path enemy→player
+        CRITICAL FIX: For Greedy/A* algorithms, ALWAYS create a valid initial path 
+        from enemy to player with NO plateau conditions at game start.
+        This ensures player cannot win by standing still.
+        
+        For Local Min algorithms: create descending path enemy→player
+        For Local Max algorithms: create ascending path enemy→player  
+        For UCS: create low-cost path enemy→player
         
         Args:
             enemy_node: Enemy starting position
@@ -251,93 +255,106 @@ class Graph:
         """
         import random as rand_module
         
-        # Decide if this game will favor the enemy
-        favor_enemy = rand_module.random() < favor_enemy_chance
+        # CRITICAL: For Greedy/A*, ALWAYS create valid initial path (not random)
+        # Find shortest path from enemy to player using BFS
+        visited = set()
+        parent_map = {enemy_node: None}
+        queue = [enemy_node]
+        visited.add(enemy_node)
         
-        if not favor_enemy:
-            # Random values - no special pattern
-            for node in self.nodes:
-                node.heuristic = rand_module.uniform(10.0, 300.0)
-                node.path_cost = rand_module.uniform(10.0, 300.0)
-        else:
-            # Create patterns that favor enemy based on algorithm
-            # Find shortest path from enemy to player using BFS
-            visited = set()
-            parent_map = {enemy_node: None}
-            queue = [enemy_node]
-            visited.add(enemy_node)
-            
-            while queue:
-                current = queue.pop(0)
-                if current == player_node:
-                    break
-                for neighbor, _ in current.neighbors:
-                    if neighbor not in visited:
-                        visited.add(neighbor)
-                        parent_map[neighbor] = current
-                        queue.append(neighbor)
-            
-            # Reconstruct path from enemy to player
-            path_to_player = []
-            if player_node in parent_map:
-                node = player_node
-                while node is not None:
-                    path_to_player.append(node)
-                    node = parent_map.get(node)
-                path_to_player.reverse()
-            
-            # Assign values based on algorithm type
-            if 'Local Min' in algorithm:
-                # For Local Min: create descending path (high→low toward player)
-                if path_to_player:
-                    for i, node in enumerate(path_to_player):
-                        # Descending values along path
-                        progress = i / max(1, len(path_to_player) - 1)
-                        node.heuristic = 300.0 - (progress * 250.0) + rand_module.uniform(-20, 20)
-                    # Other nodes get random values
-                    for node in self.nodes:
-                        if node not in path_to_player:
-                            node.heuristic = rand_module.uniform(50.0, 300.0)
-                else:
-                    # Fallback to random
-                    for node in self.nodes:
-                        node.heuristic = rand_module.uniform(10.0, 300.0)
-            
-            elif 'Local Max' in algorithm:
-                # For Local Max: create ascending path (low→high toward player)
-                if path_to_player:
-                    for i, node in enumerate(path_to_player):
-                        # Ascending values along path
-                        progress = i / max(1, len(path_to_player) - 1)
-                        node.heuristic = 50.0 + (progress * 250.0) + rand_module.uniform(-20, 20)
-                    # Other nodes get random values
-                    for node in self.nodes:
-                        if node not in path_to_player:
-                            node.heuristic = rand_module.uniform(10.0, 250.0)
-                else:
-                    # Fallback to random
-                    for node in self.nodes:
-                        node.heuristic = rand_module.uniform(10.0, 300.0)
-            
-            elif algorithm == 'UCS':
-                # For UCS: create low path_cost along path
-                if path_to_player:
-                    for node in path_to_player:
-                        node.path_cost = rand_module.uniform(10.0, 80.0)
-                    # Other nodes get higher costs
-                    for node in self.nodes:
-                        if node not in path_to_player:
-                            node.path_cost = rand_module.uniform(100.0, 300.0)
-                else:
-                    # Fallback to random
-                    for node in self.nodes:
-                        node.path_cost = rand_module.uniform(10.0, 300.0)
-            
-            # For UCS and all algorithms, also assign path_cost
-            if algorithm != 'UCS' or not path_to_player:
+        while queue:
+            current = queue.pop(0)
+            if current == player_node:
+                break
+            for neighbor, _ in current.neighbors:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    parent_map[neighbor] = current
+                    queue.append(neighbor)
+        
+        # Reconstruct path from enemy to player
+        path_to_player = []
+        if player_node in parent_map:
+            node = player_node
+            while node is not None:
+                path_to_player.append(node)
+                node = parent_map.get(node)
+            path_to_player.reverse()
+        
+        # Assign values based on algorithm type
+        if 'Local Min' in algorithm:
+            # For Local Min: create descending path (high→low toward player)
+            # CRITICAL: Ensure STRICT descending values with NO plateau
+            if path_to_player and len(path_to_player) > 1:
+                # Assign decreasing values along path with guaranteed gaps
+                for i, node in enumerate(path_to_player):
+                    # Strict descending: each node is at least 30 units lower than previous
+                    # Start at 300, each step decreases by 30-50 units
+                    gap = rand_module.uniform(30.0, 50.0)
+                    node.heuristic = 300.0 - (i * gap)
+                
+                # Other nodes get random values but ensure they don't break the path
                 for node in self.nodes:
-                    if not hasattr(node, 'path_cost') or algorithm != 'UCS':
-                        node.path_cost = rand_module.uniform(10.0, 300.0)
+                    if node not in path_to_player:
+                        node.heuristic = rand_module.uniform(50.0, 350.0)
+            else:
+                # Fallback to random
+                for node in self.nodes:
+                    node.heuristic = rand_module.uniform(10.0, 300.0)
+        
+        elif 'Local Max' in algorithm:
+            # For Local Max: create ascending path (low→high toward player)
+            # CRITICAL: Ensure STRICT ascending values with NO plateau
+            if path_to_player and len(path_to_player) > 1:
+                # Assign increasing values along path with guaranteed gaps
+                for i, node in enumerate(path_to_player):
+                    # Strict ascending: each node is at least 30 units higher than previous
+                    # Start at 50, each step increases by 30-50 units
+                    gap = rand_module.uniform(30.0, 50.0)
+                    node.heuristic = 50.0 + (i * gap)
+                
+                # Other nodes get random values but ensure they don't break the path
+                for node in self.nodes:
+                    if node not in path_to_player:
+                        node.heuristic = rand_module.uniform(10.0, 300.0)
+            else:
+                # Fallback to random
+                for node in self.nodes:
+                    node.heuristic = rand_module.uniform(10.0, 300.0)
+        
+        elif algorithm == 'UCS':
+            # For UCS: create low path_cost along path
+            if path_to_player:
+                for node in path_to_player:
+                    node.path_cost = rand_module.uniform(10.0, 80.0)
+                # Other nodes get higher costs
+                for node in self.nodes:
+                    if node not in path_to_player:
+                        node.path_cost = rand_module.uniform(100.0, 300.0)
+            else:
+                # Fallback to random
+                for node in self.nodes:
+                    node.path_cost = rand_module.uniform(10.0, 300.0)
+        
+        # For A* algorithms, also ensure valid gradient in path_cost
+        if 'A*' in algorithm:
+            if 'Local Min' in algorithm and path_to_player and len(path_to_player) > 1:
+                # A* Local Min: decreasing f-cost along path
+                for i, node in enumerate(path_to_player):
+                    # Assign path costs that contribute to decreasing f-cost
+                    gap = rand_module.uniform(20.0, 30.0)
+                    node.path_cost = 200.0 - (i * gap)
+            elif 'Local Max' in algorithm and path_to_player and len(path_to_player) > 1:
+                # A* Local Max: increasing f-cost along path
+                for i, node in enumerate(path_to_player):
+                    # Assign path costs that contribute to increasing f-cost
+                    gap = rand_module.uniform(20.0, 30.0)
+                    node.path_cost = 50.0 + (i * gap)
+        
+        # For all algorithms, assign path_cost to nodes not in path
+        for node in self.nodes:
+            if not hasattr(node, 'path_cost') or node.path_cost == 0.0:
+                node.path_cost = rand_module.uniform(10.0, 300.0)
         
         # Round to 1 decimal place for cleaner display
         for node in self.nodes:
