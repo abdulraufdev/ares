@@ -348,8 +348,17 @@ class GraphRenderer:
         minutes = game_time // 60
         seconds = game_time % 60
         
-        if victory_reason == "enemy_stuck":
+        # CRITICAL FIX: Display accurate victory messages based on stuck_reason
+        if victory_reason == "local_min":
+            subtitle = self.ui_font.render('Enemy reached local minimum but couldn\'t find player!', True, (220, 220, 220))
+        elif victory_reason == "local_max":
+            subtitle = self.ui_font.render('Enemy reached local maximum but couldn\'t find player!', True, (220, 220, 220))
+        elif victory_reason == "graph_explored":
+            subtitle = self.ui_font.render('Enemy explored entire graph but couldn\'t find player!', True, (220, 220, 220))
+        elif victory_reason == "dead_end":
             subtitle = self.ui_font.render('Enemy got stuck in a dead-end!', True, (220, 220, 220))
+        elif victory_reason == "combat":
+            subtitle = self.ui_font.render(f'You defeated the {self.algorithm} enemy!', True, (220, 220, 220))
         else:
             subtitle = self.ui_font.render(f'You outsmarted the {self.algorithm} algorithm!', True, (220, 220, 220))
         
