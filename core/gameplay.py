@@ -224,14 +224,19 @@ class EnemyAI:
         # Track visited nodes (for no-backtracking enforcement)
         self.visited_nodes: set[Node] = set()
         
+        # Track visited leaves (for BFS/DFS/UCS - cannot revisit)
+        self.visited_leaves: set[Node] = set()
+        
         # Track if enemy is stuck (no valid moves)
         self.stuck = False
+        
+        # Track if enemy has caught the player (at same node)
+        self.caught_player = False
         
         # Legacy compatibility (for old code that checks these)
         self.path = []
         self.path_index = 0
         self.target_node = None
-        self.visited_leaves: set[Node] = set()
     
     def ease_in_out_cubic(self, t: float) -> float:
         """Smooth easing function for animations.
@@ -260,58 +265,127 @@ class EnemyAI:
     def get_next_move(self, player_node: Node) -> Node | None:
         """Get next move based PURELY on algorithm rules - NO pathfinding/lookahead.
         
+        BFS/DFS/UCS: Can backtrack (revisit nodes) but CANNOT revisit visited leaves
+        Greedy/A*: NO backtracking at all (cannot revisit any visited node)
+        
+        Player Tracking (Greedy/A* when caught):
+        - Local Min: Follow player only if they move to minimum value neighbor
+        - Local Max: Follow player only if they move to maximum value neighbor
+        - Otherwise: Abandon player, pick correct min/max neighbor instead
+        
         Args:
             player_node: Player's current position
             
         Returns:
-            Next node to move to, or None if stuck
+            Next node to move to, or None if stuck/completed
         """
         if self.stuck:
             return None  # Enemy is stuck, player wins!
         
-        # Get all unvisited neighbors
-        unvisited_neighbors = [n for n, _ in self.node.neighbors 
-                               if n not in self.visited_nodes]
+        # Check if enemy caught the player
+        if self.node == player_node:
+            self.caught_player = True
+            # Stop moving when at goal - only resume if player moves
+            return None
         
-        # If no unvisited neighbors, enemy is STUCK
-        if not unvisited_neighbors:
-            self.stuck = True
-            return None  # Player wins!
+        # Special logic for Greedy/A* when player was caught and moved
+        if self.caught_player and self.algorithm in ['Greedy (Local Min)', 'Greedy (Local Max)',
+                                                      'A* (Local Min)', 'A* (Local Max)']:
+            # Player moved away - decide whether to follow or abandon
+            # Get all valid neighbors (unvisited)
+            valid_neighbors = [n for n, _ in self.node.neighbors 
+                             if n not in self.visited_nodes]
+            
+            if not valid_neighbors:
+                self.stuck = True
+                return None
+            
+            # Determine the "correct" neighbor based on algorithm
+            if self.algorithm == "Greedy (Local Min)":
+                correct_neighbor = min(valid_neighbors, key=lambda n: n.heuristic)
+            elif self.algorithm == "Greedy (Local Max)":
+                correct_neighbor = max(valid_neighbors, key=lambda n: n.heuristic)
+            elif self.algorithm == "A* (Local Min)":
+                correct_neighbor = min(valid_neighbors, 
+                                     key=lambda n: n.heuristic + n.path_cost)
+            elif self.algorithm == "A* (Local Max)":
+                correct_neighbor = max(valid_neighbors, 
+                                     key=lambda n: n.heuristic + n.path_cost)
+            else:
+                correct_neighbor = valid_neighbors[0]
+            
+            # Check if player is at the correct neighbor
+            if player_node == correct_neighbor:
+                # Follow player (they moved to the min/max neighbor)
+                self.caught_player = False  # Will catch again next update
+                return player_node
+            else:
+                # Abandon player, choose correct neighbor instead
+                self.caught_player = False
+                return correct_neighbor
+        
+        # Get valid neighbors based on algorithm type
+        if self.algorithm in ['BFS', 'DFS', 'UCS']:
+            # BFS/DFS/UCS: Can backtrack (revisit nodes) but NOT visited leaves
+            valid_neighbors = [n for n, _ in self.node.neighbors 
+                             if not (n.is_leaf() and n in self.visited_leaves)]
+            
+            # If no valid neighbors, check if entire graph has been explored
+            if not valid_neighbors:
+                # For BFS/DFS/UCS, being stuck means completing traversal
+                # Player wins only if they were never found
+                self.stuck = True
+                return None
+        else:
+            # Greedy/A*: NO backtracking - cannot revisit ANY visited node
+            valid_neighbors = [n for n, _ in self.node.neighbors 
+                             if n not in self.visited_nodes]
+            
+            # If no valid neighbors, enemy is STUCK (plateau/ridge/dead-end)
+            if not valid_neighbors:
+                self.stuck = True
+                return None  # Player wins!
         
         # Apply PURE algorithm rules (no lookahead/planning)
         if self.algorithm == "Greedy (Local Min)":
             # Pick neighbor with LOWEST heuristic (greedy, no planning)
-            next_node = min(unvisited_neighbors, key=lambda n: n.heuristic)
+            # ALWAYS pick minimum - no exceptions
+            next_node = min(valid_neighbors, key=lambda n: n.heuristic)
         
         elif self.algorithm == "Greedy (Local Max)":
             # Pick neighbor with HIGHEST heuristic (greedy, no planning)
-            next_node = max(unvisited_neighbors, key=lambda n: n.heuristic)
+            # ALWAYS pick maximum - no exceptions
+            next_node = max(valid_neighbors, key=lambda n: n.heuristic)
         
         elif self.algorithm == "UCS":
             # Pick neighbor with LOWEST path cost (greedy, no planning)
-            next_node = min(unvisited_neighbors, key=lambda n: n.path_cost)
+            next_node = min(valid_neighbors, key=lambda n: n.path_cost)
         
         elif self.algorithm == "A* (Local Min)":
             # Pick neighbor with LOWEST f-cost (h + g)
-            next_node = min(unvisited_neighbors, 
+            # ALWAYS pick minimum f-cost - no exceptions
+            next_node = min(valid_neighbors, 
                            key=lambda n: n.heuristic + n.path_cost)
         
         elif self.algorithm == "A* (Local Max)":
             # Pick neighbor with HIGHEST f-cost (h + g)
-            next_node = max(unvisited_neighbors, 
+            # ALWAYS pick maximum f-cost - no exceptions
+            next_node = max(valid_neighbors, 
                            key=lambda n: n.heuristic + n.path_cost)
         
         elif self.algorithm == "BFS":
             # BFS: Pick first unvisited neighbor (queue-like behavior)
-            next_node = unvisited_neighbors[0]
+            # If all neighbors visited, backtrack to first available
+            next_node = valid_neighbors[0]
         
         elif self.algorithm == "DFS":
             # DFS: Pick last unvisited neighbor (stack-like behavior)
-            next_node = unvisited_neighbors[-1]
+            # If all neighbors visited, backtrack to last available
+            next_node = valid_neighbors[-1]
         
         else:
             # Default: pick first neighbor
-            next_node = unvisited_neighbors[0]
+            next_node = valid_neighbors[0]
         
         return next_node
     
@@ -353,8 +427,25 @@ class EnemyAI:
             if progress >= 1.0:
                 self.animating = False
                 self.visual_pos = self.node.pos
+                
                 # Mark current node as visited AFTER animation completes
-                self.visited_nodes.add(self.node)
+                # For Greedy/A*: mark all visited nodes
+                if self.algorithm in ['Greedy (Local Min)', 'Greedy (Local Max)', 
+                                     'A* (Local Min)', 'A* (Local Max)']:
+                    self.visited_nodes.add(self.node)
+                
+                # For BFS/DFS/UCS: mark visited leaves only
+                if self.algorithm in ['BFS', 'DFS', 'UCS']:
+                    if self.node.is_leaf():
+                        self.visited_leaves.add(self.node)
+        
+        # If caught player and player hasn't moved, stay put
+        if self.caught_player and self.node == player_node:
+            return False
+        
+        # If player moved away from caught position, resume pursuit
+        if self.caught_player and self.node != player_node:
+            self.caught_player = False
         
         # Check if we can start a new move (not animating and enough time passed)
         if self.animating or (current_time - self.last_move_time < self.move_delay):
@@ -364,7 +455,7 @@ class EnemyAI:
         next_node = self.get_next_move(player_node)
         
         if next_node is None:
-            # Enemy is stuck - no more moves possible
+            # Enemy is stuck or caught player - no more moves
             return False
         
         # Start animation to next node
@@ -429,12 +520,13 @@ class GameSession:
         self.enemy = EnemyAI(enemy_start, algorithm, self.graph)
         self.combat = CombatSystem()
         
+        # Assign balanced costs based on spawn positions and algorithm
+        # This creates ~50% chance of enemy-favorable patterns
+        self.graph.assign_balanced_costs(enemy_start, player_start, algorithm)
+        
         # Initialize h_cost for all nodes (for tooltip display)
         # Set h_cost based on distance to player's starting position
         self.graph.update_heuristics_to_target(player_start)
-        
-        # Graph already has random costs assigned at creation
-        # NO initialization or updates needed for tooltips
         
         # Track player's last node to detect movement
         self.player_last_node = player_start
