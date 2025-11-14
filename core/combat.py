@@ -63,10 +63,9 @@ class CombatSystem:
             Tuple of (player_damaged, enemy_damaged)
         """
         if player_node == enemy_node:
-            # Both take damage
+            # Only player takes damage (enemy is invincible)
             player_damaged = self.player.take_damage(self.contact_damage, current_time)
-            enemy_damaged = self.enemy.take_damage(self.contact_damage, current_time)
-            return (player_damaged, enemy_damaged)
+            return (player_damaged, False)
         
         return (False, False)
     
@@ -79,8 +78,7 @@ class CombatSystem:
         if not self.player.is_alive():
             return (True, 'defeat')
         
-        if not self.enemy.is_alive():
-            return (True, 'victory')
+        # Enemy cannot die (invincible)
         
         return (False, '')
     

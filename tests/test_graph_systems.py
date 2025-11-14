@@ -280,9 +280,9 @@ class TestCombat:
         
         player_damaged, enemy_damaged = combat.check_contact(contact_node, contact_node, 1000)
         assert player_damaged
-        assert enemy_damaged
+        assert not enemy_damaged  # Enemy is invincible
         assert combat.player.hp == 90
-        assert combat.enemy.hp == 140
+        assert combat.enemy.hp == 150  # Enemy health unchanged
     
     def test_game_over_conditions(self):
         """Test victory and defeat conditions."""
@@ -298,12 +298,12 @@ class TestCombat:
         assert is_over
         assert reason == 'defeat'
         
-        # Reset and test enemy death
+        # Enemy cannot die (invincible) - no victory from combat
         combat.reset()
         combat.enemy.hp = 0
         is_over, reason = combat.is_game_over()
-        assert is_over
-        assert reason == 'victory'
+        assert not is_over  # Game is not over even if enemy HP reaches 0
+        assert reason == ''  # No game over reason
 
 
 class TestGameplay:

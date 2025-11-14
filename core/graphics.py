@@ -156,34 +156,31 @@ class GraphRenderer:
     
     def draw_health_bars(self, player_entity, enemy_entity, 
                         player_hp: float, enemy_hp: float):
-        """Draw health bars above player and enemy.
+        """Draw health bar above player only (enemy is invincible).
         
         Args:
             player_entity: Player entity (has visual_pos)
-            enemy_entity: Enemy entity (has visual_pos)
+            enemy_entity: Enemy entity (has visual_pos) - not used
             player_hp: Player health percentage (0.0 to 1.0)
-            enemy_hp: Enemy health percentage (0.0 to 1.0)
+            enemy_hp: Enemy health percentage (0.0 to 1.0) - not used
         """
         bar_width = 50
         bar_height = 6
         
-        def draw_bar(visual_pos, hp_percent, is_player):
-            x = visual_pos[0] - bar_width / 2
-            y = visual_pos[1] - NODE_RADIUS - 15
-            
-            # Background
-            pygame.draw.rect(self.screen, (60, 60, 60), (x, y, bar_width, bar_height))
-            
-            # Health bar
-            hp_color = (100, 255, 100) if is_player else (255, 100, 100)
-            hp_width = bar_width * hp_percent
-            pygame.draw.rect(self.screen, hp_color, (x, y, hp_width, bar_height))
-            
-            # Border
-            pygame.draw.rect(self.screen, (200, 200, 200), (x, y, bar_width, bar_height), 1)
+        # Only draw player health bar
+        x = player_entity.visual_pos[0] - bar_width / 2
+        y = player_entity.visual_pos[1] - NODE_RADIUS - 15
         
-        draw_bar(player_entity.visual_pos, player_hp, True)
-        draw_bar(enemy_entity.visual_pos, enemy_hp, False)
+        # Background
+        pygame.draw.rect(self.screen, (60, 60, 60), (x, y, bar_width, bar_height))
+        
+        # Health bar
+        hp_color = (100, 255, 100)
+        hp_width = bar_width * player_hp
+        pygame.draw.rect(self.screen, hp_color, (x, y, hp_width, bar_height))
+        
+        # Border
+        pygame.draw.rect(self.screen, (200, 200, 200), (x, y, bar_width, bar_height), 1)
     
     def draw_ui_panel(self, stats: Stats, paused: bool, game_time: int):
         """Draw UI panel with game information.
