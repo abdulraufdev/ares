@@ -125,12 +125,13 @@ algorithm_arena/
 │   ├── combat.py        # Combat system
 │   └── models.py        # Data models
 ├── algorithms/          # Pathfinding algorithms
-│   ├── graph_algorithms.py  # Graph-based implementations
-│   ├── bfs.py           # Breadth-First Search (grid)
-│   ├── dfs.py           # Depth-First Search (grid)
-│   ├── ucs.py           # Uniform Cost Search (grid)
-│   ├── greedy.py        # Greedy Best-First (grid)
-│   └── astar.py         # A* Search (grid)
+│   ├── graph_algorithms.py  # All 7 algorithm implementations
+│   ├── bfs.py           # Grid-based BFS (legacy)
+│   ├── dfs.py           # Grid-based DFS (legacy)
+│   ├── ucs.py           # Grid-based UCS (legacy)
+│   ├── greedy.py        # Grid-based Greedy (legacy)
+│   ├── astar.py         # Grid-based A* (legacy)
+│   └── common.py        # Shared utilities
 ├── screenshots/         # Game screenshots
 └── tests/               # Unit tests
 ```
