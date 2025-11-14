@@ -227,6 +227,10 @@ class EnemyAI:
         # Track visited leaves (for BFS/DFS/UCS - cannot revisit)
         self.visited_leaves: set[Node] = set()
         
+        # CRITICAL FIX: Mark starting node as visited immediately for BFS/DFS/UCS
+        if algorithm in ['BFS', 'DFS', 'UCS']:
+            start_node.visited = True
+        
         # Track if enemy is stuck (no valid moves)
         self.stuck = False
         
@@ -326,9 +330,18 @@ class EnemyAI:
         
         # Get valid neighbors based on algorithm type
         if self.algorithm in ['BFS', 'DFS', 'UCS']:
-            # BFS/DFS/UCS: Can backtrack (revisit nodes) but NOT visited leaves
-            valid_neighbors = [n for n, _ in self.node.neighbors 
-                             if not (n.is_leaf() and n in self.visited_leaves)]
+            # BFS/DFS/UCS: Prioritize unvisited nodes, but allow backtracking when stuck
+            # First, try to find unvisited neighbors
+            unvisited_neighbors = [n for n, _ in self.node.neighbors if not n.visited]
+            
+            if unvisited_neighbors:
+                # We have unvisited neighbors - use them (prevents infinite loop)
+                valid_neighbors = unvisited_neighbors
+            else:
+                # All neighbors are visited - allow backtracking to non-leaf nodes
+                # This allows backtracking up the tree to find other unexplored branches
+                valid_neighbors = [n for n, _ in self.node.neighbors 
+                                 if not (n.is_leaf() and n in self.visited_leaves)]
             
             # If no valid neighbors, check if entire graph has been explored
             if not valid_neighbors:
@@ -452,15 +465,18 @@ class EnemyAI:
                 self.visual_pos = self.node.pos
                 
                 # Mark current node as visited AFTER animation completes
+                # CRITICAL FIX: Update node.visited boolean immediately for BFS/DFS/UCS
+                if self.algorithm in ['BFS', 'DFS', 'UCS']:
+                    # Set the visited boolean on the node itself (for tooltip display)
+                    self.node.visited = True
+                    # Track visited leaves (cannot revisit these)
+                    if self.node.is_leaf():
+                        self.visited_leaves.add(self.node)
+                
                 # For Greedy/A*: mark all visited nodes
                 if self.algorithm in ['Greedy (Local Min)', 'Greedy (Local Max)', 
                                      'A* (Local Min)', 'A* (Local Max)']:
                     self.visited_nodes.add(self.node)
-                
-                # For BFS/DFS/UCS: mark visited leaves only
-                if self.algorithm in ['BFS', 'DFS', 'UCS']:
-                    if self.node.is_leaf():
-                        self.visited_leaves.add(self.node)
         
         # If caught player and player hasn't moved, stay put
         if self.caught_player and self.node == player_node:
