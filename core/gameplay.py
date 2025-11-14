@@ -346,15 +346,26 @@ class EnemyAI:
                 self.stuck = True
                 return None  # Player wins!
         
-        # Apply PURE algorithm rules (no lookahead/planning)
+        # PLATEAU/RIDGE DETECTION for Greedy/A*: Check if stuck at local min/max
+        # before selecting next move
         if self.algorithm == "Greedy (Local Min)":
+            # Check if at local minimum: all neighbors have GREATER heuristic values
+            min_neighbor_h = min(n.heuristic for n in valid_neighbors)
+            if min_neighbor_h > self.node.heuristic:
+                # All neighbors have greater values - stuck at local minimum!
+                self.stuck = True
+                return None
             # Pick neighbor with LOWEST heuristic (greedy, no planning)
-            # ALWAYS pick minimum - no exceptions
             next_node = min(valid_neighbors, key=lambda n: n.heuristic)
         
         elif self.algorithm == "Greedy (Local Max)":
+            # Check if at local maximum: all neighbors have SMALLER heuristic values
+            max_neighbor_h = max(n.heuristic for n in valid_neighbors)
+            if max_neighbor_h < self.node.heuristic:
+                # All neighbors have smaller values - stuck at local maximum!
+                self.stuck = True
+                return None
             # Pick neighbor with HIGHEST heuristic (greedy, no planning)
-            # ALWAYS pick maximum - no exceptions
             next_node = max(valid_neighbors, key=lambda n: n.heuristic)
         
         elif self.algorithm == "UCS":
@@ -362,14 +373,26 @@ class EnemyAI:
             next_node = min(valid_neighbors, key=lambda n: n.path_cost)
         
         elif self.algorithm == "A* (Local Min)":
+            # Check if at local minimum: all neighbors have GREATER f-cost values
+            min_neighbor_f = min(n.heuristic + n.path_cost for n in valid_neighbors)
+            current_f = self.node.heuristic + self.node.path_cost
+            if min_neighbor_f > current_f:
+                # All neighbors have greater f-costs - stuck at local minimum!
+                self.stuck = True
+                return None
             # Pick neighbor with LOWEST f-cost (h + g)
-            # ALWAYS pick minimum f-cost - no exceptions
             next_node = min(valid_neighbors, 
                            key=lambda n: n.heuristic + n.path_cost)
         
         elif self.algorithm == "A* (Local Max)":
+            # Check if at local maximum: all neighbors have SMALLER f-cost values
+            max_neighbor_f = max(n.heuristic + n.path_cost for n in valid_neighbors)
+            current_f = self.node.heuristic + self.node.path_cost
+            if max_neighbor_f < current_f:
+                # All neighbors have smaller f-costs - stuck at local maximum!
+                self.stuck = True
+                return None
             # Pick neighbor with HIGHEST f-cost (h + g)
-            # ALWAYS pick maximum f-cost - no exceptions
             next_node = max(valid_neighbors, 
                            key=lambda n: n.heuristic + n.path_cost)
         
