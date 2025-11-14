@@ -335,15 +335,16 @@ class EnemyAI:
         # Get valid neighbors based on algorithm type
         if self.algorithm in ['BFS', 'DFS', 'UCS']:
             # BFS/DFS/UCS: Prioritize unvisited nodes, but allow backtracking when stuck
-            # First, try to find unvisited neighbors
-            unvisited_neighbors = [n for n, _ in self.node.neighbors if not n.visited]
+            # First, try to find truly unvisited neighbors (not visited AND not in visited_leaves)
+            unvisited_neighbors = [n for n, _ in self.node.neighbors 
+                                 if not n.visited and not (n.is_leaf() and n in self.visited_leaves)]
             
             if unvisited_neighbors:
                 # We have unvisited neighbors - use them (prevents infinite loop)
                 valid_neighbors = unvisited_neighbors
             else:
-                # All neighbors are visited - allow backtracking to non-leaf nodes
-                # This allows backtracking up the tree to find other unexplored branches
+                # All neighbors are visited or are visited leaves
+                # Allow backtracking to visited non-leaf nodes only
                 valid_neighbors = [n for n, _ in self.node.neighbors 
                                  if not (n.is_leaf() and n in self.visited_leaves)]
             

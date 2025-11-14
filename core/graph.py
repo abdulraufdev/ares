@@ -286,12 +286,18 @@ class Graph:
             # For Local Min: create descending path (high→low toward player)
             # CRITICAL: Ensure STRICT descending values with NO plateau
             if path_to_player and len(path_to_player) > 1:
+                # Calculate gap size based on path length to ensure positive values
+                # Start at 300, end at minimum 20
+                total_range = 300.0 - 20.0  # 280 units to work with
+                path_length = len(path_to_player)
+                gap = total_range / max(1, path_length - 1)
+                gap = min(gap, 50.0)  # Cap at 50 for reasonable spacing
+                
                 # Assign decreasing values along path with guaranteed gaps
                 for i, node in enumerate(path_to_player):
-                    # Strict descending: each node is at least 30 units lower than previous
-                    # Start at 300, each step decreases by 30-50 units
-                    gap = rand_module.uniform(30.0, 50.0)
-                    node.heuristic = 300.0 - (i * gap)
+                    # Strict descending: ensure values remain positive
+                    value = 300.0 - (i * gap)
+                    node.heuristic = max(20.0, value)  # Ensure minimum of 20
                 
                 # Other nodes get random values but ensure they don't break the path
                 for node in self.nodes:
@@ -306,12 +312,18 @@ class Graph:
             # For Local Max: create ascending path (low→high toward player)
             # CRITICAL: Ensure STRICT ascending values with NO plateau
             if path_to_player and len(path_to_player) > 1:
+                # Calculate gap size based on path length to ensure valid values
+                # Start at 20, end at maximum 300
+                total_range = 300.0 - 20.0  # 280 units to work with
+                path_length = len(path_to_player)
+                gap = total_range / max(1, path_length - 1)
+                gap = min(gap, 50.0)  # Cap at 50 for reasonable spacing
+                
                 # Assign increasing values along path with guaranteed gaps
                 for i, node in enumerate(path_to_player):
-                    # Strict ascending: each node is at least 30 units higher than previous
-                    # Start at 50, each step increases by 30-50 units
-                    gap = rand_module.uniform(30.0, 50.0)
-                    node.heuristic = 50.0 + (i * gap)
+                    # Strict ascending: ensure values remain within bounds
+                    value = 20.0 + (i * gap)
+                    node.heuristic = min(300.0, value)  # Ensure maximum of 300
                 
                 # Other nodes get random values but ensure they don't break the path
                 for node in self.nodes:
@@ -340,16 +352,28 @@ class Graph:
         if 'A*' in algorithm:
             if 'Local Min' in algorithm and path_to_player and len(path_to_player) > 1:
                 # A* Local Min: decreasing f-cost along path
+                # Calculate gap to ensure positive values
+                total_range = 200.0 - 20.0  # 180 units to work with
+                path_length = len(path_to_player)
+                gap = total_range / max(1, path_length - 1)
+                gap = min(gap, 30.0)  # Cap at 30 for reasonable spacing
+                
                 for i, node in enumerate(path_to_player):
                     # Assign path costs that contribute to decreasing f-cost
-                    gap = rand_module.uniform(20.0, 30.0)
-                    node.path_cost = 200.0 - (i * gap)
+                    value = 200.0 - (i * gap)
+                    node.path_cost = max(20.0, value)  # Ensure minimum of 20
             elif 'Local Max' in algorithm and path_to_player and len(path_to_player) > 1:
                 # A* Local Max: increasing f-cost along path
+                # Calculate gap to ensure valid values
+                total_range = 200.0 - 20.0  # 180 units to work with
+                path_length = len(path_to_player)
+                gap = total_range / max(1, path_length - 1)
+                gap = min(gap, 30.0)  # Cap at 30 for reasonable spacing
+                
                 for i, node in enumerate(path_to_player):
                     # Assign path costs that contribute to increasing f-cost
-                    gap = rand_module.uniform(20.0, 30.0)
-                    node.path_cost = 50.0 + (i * gap)
+                    value = 20.0 + (i * gap)
+                    node.path_cost = min(200.0, value)  # Ensure maximum of 200
         
         # For all algorithms, assign path_cost to nodes not in path
         for node in self.nodes:
