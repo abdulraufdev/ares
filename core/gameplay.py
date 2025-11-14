@@ -227,6 +227,9 @@ class EnemyAI:
         # Track visited leaves (for BFS/DFS/UCS - cannot revisit)
         self.visited_leaves: set[Node] = set()
         
+        # Track nodes that have been backtracked from (to prevent re-backtracking loops)
+        self.backtracked_from: set[Node] = set()
+        
         # CRITICAL FIX: Mark starting node as visited immediately for BFS/DFS/UCS
         if algorithm in ['BFS', 'DFS', 'UCS']:
             start_node.visited = True
@@ -344,9 +347,24 @@ class EnemyAI:
                 valid_neighbors = unvisited_neighbors
             else:
                 # All neighbors are visited or are visited leaves
-                # Allow backtracking to visited non-leaf nodes only
+                # Mark current node as backtracked from (to prevent returning here in loops)
+                self.backtracked_from.add(self.node)
+                
+                # Check if there are ANY unvisited nodes left in the entire graph
+                any_unvisited = any(not node.visited for node in self.graph.nodes)
+                
+                if not any_unvisited:
+                    # Entire graph has been explored - no unvisited nodes left anywhere
+                    # Player wins because enemy explored everything but couldn't find player
+                    self.stuck = True
+                    self.stuck_reason = "graph_explored"
+                    return None
+                
+                # There are still unvisited nodes somewhere, allow backtracking to reach them
+                # Allow backtracking to visited non-leaf nodes that haven't been backtracked from
                 valid_neighbors = [n for n, _ in self.node.neighbors 
-                                 if not (n.is_leaf() and n in self.visited_leaves)]
+                                 if not (n.is_leaf() and n in self.visited_leaves)
+                                 and n not in self.backtracked_from]
             
             # If no valid neighbors, check if entire graph has been explored
             if not valid_neighbors:
