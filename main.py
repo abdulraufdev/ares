@@ -90,6 +90,8 @@ def main():
                         game_state = STATE_PAUSED if game_session.paused else STATE_PLAYING
                     elif event.key == pygame.K_ESCAPE:
                         # Return to menu
+                        if game_session:
+                            game_session.sound_manager.stop_bgm()
                         game_state = STATE_MENU
                         game_session = None
                         renderer = None
@@ -113,6 +115,8 @@ def main():
                         game_state = STATE_PLAYING
                     elif event.key == pygame.K_ESCAPE:
                         # Return to menu
+                        if game_session:
+                            game_session.sound_manager.stop_bgm()
                         game_state = STATE_MENU
                         game_session = None
                         renderer = None
@@ -130,11 +134,15 @@ def main():
                 # Handle button clicks
                 if play_again_button.handle_event(event):
                     # Restart with same algorithm
+                    if game_session:
+                        game_session.sound_manager.stop_bgm()
                     game_session = GameSession(selected_algorithm)
                     renderer = GraphRenderer(screen, selected_algorithm)
                     game_state = STATE_PLAYING
                 
                 if main_menu_button.handle_event(event):
+                    if game_session:
+                        game_session.sound_manager.stop_bgm()
                     game_state = STATE_MENU
                     game_session = None
                     renderer = None
@@ -146,8 +154,12 @@ def main():
             # Check for victory/defeat
             if game_session.is_victory:
                 game_state = STATE_VICTORY
+                # Play victory sound
+                game_session.sound_manager.play_bgm('victory', loop=False)
             elif game_session.is_defeat:
                 game_state = STATE_DEFEAT
+                # Play defeat sound
+                game_session.sound_manager.play_bgm('defeat', loop=False)
         
         # Rendering
         if game_state == STATE_MENU:

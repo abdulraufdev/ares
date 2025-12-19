@@ -5,6 +5,7 @@ from core.graph import Graph
 from core.node import Node
 from core.combat import CombatSystem
 from core.models import Stats
+from core.sound_manager import SoundManager
 from algorithms.graph_algorithms import find_path
 from config import *
 
@@ -548,6 +549,9 @@ class GameSession:
         self.algorithm = algorithm
         self.graph = Graph(WINDOW_WIDTH, WINDOW_HEIGHT, NUM_NODES, GRAPH_SEED)
         
+        # Initialize sound manager
+        self.sound_manager = SoundManager()
+        
         # Random spawn positions using timestamp seed
         import random
         import time as time_module_local
@@ -606,6 +610,9 @@ class GameSession:
         self.is_victory = False
         self.is_defeat = False
         self.victory_reason = ""  # Track reason for victory
+        
+        # Start gameplay BGM
+        self.sound_manager.play_bgm('gameplay', loop=True)
     
     def handle_click(self, pos: tuple[int, int], current_time: int) -> bool:
         """Handle player click for movement with queue system.
@@ -653,21 +660,30 @@ class GameSession:
         
         # Update player with algorithm parameter for queue system
         if self.player.update(current_time, delta_time, self.algorithm):
-            # Player finished moving
+            # Player finished moving - play movement sound
+            self.sound_manager.play_sfx('movement')
             # Static costs remain unchanged - no need to update
             self.player_last_node = self.player.node
         
         # Update enemy
-        self.enemy.update(current_time, self.player.node)
+        if self.enemy.update(current_time, self.player.node):
+            # Enemy finished moving - play movement sound
+            self.sound_manager.play_sfx('movement')
         
         # Check if enemy is stuck (victory condition)
         if self.enemy.stuck and not self.is_victory:
             self.is_victory = True
             # CRITICAL FIX: Use enemy's stuck_reason for accurate victory message
             self.victory_reason = self.enemy.stuck_reason if self.enemy.stuck_reason else "enemy_stuck"
+            # Stop BGM on victory
+            self.sound_manager.stop_bgm()
         
         # Check combat
-        self.combat.check_contact(self.player.node, self.enemy.node, current_time)
+        player_damaged, enemy_damaged = self.combat.check_contact(self.player.node, self.enemy.node, current_time)
+        
+        # Play hit sound when player takes damage
+        if player_damaged:
+            self.sound_manager.play_sfx('hit')
         
         # Check game over conditions
         is_over, reason = self.combat.is_game_over()
@@ -676,12 +692,22 @@ class GameSession:
                 self.is_victory = True
                 if not self.victory_reason:
                     self.victory_reason = "combat"
+                # Stop BGM on victory
+                self.sound_manager.stop_bgm()
             else:
                 self.is_defeat = True
+                # Stop BGM on defeat
+                self.sound_manager.stop_bgm()
     
     def toggle_pause(self):
         """Toggle pause state."""
         self.paused = not self.paused
+        
+        # Pause/resume BGM based on pause state
+        if self.paused:
+            self.sound_manager.pause_bgm()
+        else:
+            self.sound_manager.resume_bgm()
     
     def get_player_stats(self) -> dict:
         """Get player statistics for end screen."""
