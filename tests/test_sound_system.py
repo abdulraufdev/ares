@@ -13,7 +13,7 @@ class TestSoundManager:
         with patch('pygame.mixer.get_init', return_value=None):
             with patch('pygame.mixer.init', side_effect=Exception("No audio device")):
                 sm = SoundManager()
-                assert sm.initialized == False
+                assert not sm.initialized
                 # Should not crash, just disable sound
     
     def test_initialization_success(self):
@@ -23,7 +23,7 @@ class TestSoundManager:
                 with patch('os.path.exists', return_value=True):
                     with patch('pygame.mixer.Sound'):
                         sm = SoundManager()
-                        assert sm.initialized == True
+                        assert sm.initialized
     
     def test_sfx_volume_defaults(self):
         """Test default volume settings."""
@@ -56,11 +56,11 @@ class TestSoundManager:
     def test_mute_unmute(self):
         """Test mute/unmute functionality."""
         sm = SoundManager()
-        assert sm.muted == False
+        assert not sm.muted
         sm.mute()
-        assert sm.muted == True
+        assert sm.muted
         sm.unmute()
-        assert sm.muted == False
+        assert not sm.muted
     
     def test_set_volumes(self):
         """Test volume setting with clamping."""
